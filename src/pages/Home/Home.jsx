@@ -246,7 +246,8 @@ export default function Home() {
 
       <S.Card>
         <h3>Ranking de Carga de Trabalho</h3>
-        <p>Número de Ordens de Serviço Abertas</p>
+        <p>Número de OS abertas</p>
+        <p>Clique no nome para mostrar mais detalhes sobre um dos executores</p>
         {rankingData.length > 0 ? (
           <S.RankingWrapper>
             {rankingData.map((item, index) => (
