@@ -128,31 +128,30 @@ export const SelectIdentificacao = styled.select`
   }
 `;
 export const EditableTextarea = styled.textarea`
-  width: 100%;
-  height: 100%;
-  min-height: 40px;
+  width: 93%;
+  min-height: 50px;
+  max-height: 150px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
+  padding: 8px;
   border: none;
   background: transparent;
-  padding: 10px;
-  resize: none;
-  overflow: hidden;
   font-family: inherit;
-  font-size: 14px;
-  color: #333;
-  outline: none;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  display: block;
-  box-sizing: border-box;
-  text-align: center;
+  font-size: 13px;
+  transition: background 0.2s;
 
-  &:hover {
-    background: #f5f6f8;
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
   }
 
   &:focus {
     background: #fff;
-    box-shadow: inset 0 0 0 2px #0073ea;
+    outline: 1px solid #0073ea;
   }
 `;
 export const TabelaWrapper = styled.div`

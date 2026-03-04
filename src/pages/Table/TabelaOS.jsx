@@ -149,7 +149,7 @@ const TabelaOS = () => {
     // Verde Bandeira Suave (Manutenção Geral)
     if (n.includes("CLÁUDIO") || n.includes("CLAUDIO")) return "#00c875";
 
-    if (n.includes("JOSÉ") || n.includes("CLAUDIO")) return "#854839";
+    if (n.includes("JOSÉ") || n.includes("CLAUDIO")) return "#7f4232";
 
     // Roxo Vibrante (Especialistas)
     if (n.includes("EVERTON")) return "#a25ddc";
