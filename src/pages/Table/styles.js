@@ -128,7 +128,7 @@ export const SelectIdentificacao = styled.select`
   }
 `;
 export const EditableTextarea = styled.textarea`
-  width: 93%;
+  width: 92%;
   min-height: 50px;
   max-height: 150px;
   resize: none;
