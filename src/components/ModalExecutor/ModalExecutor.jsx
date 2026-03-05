@@ -1,7 +1,7 @@
 import React from "react";
 import * as S from "./styles";
 
-const ModalExecutor = ({ isOpen, onClose, title, data }) => {
+const ModalExecutor = ({ isOpen, onClose, title, data, status }) => {
   if (!isOpen) return null;
 
   return (
@@ -40,7 +40,11 @@ const ModalExecutor = ({ isOpen, onClose, title, data }) => {
               ))}
             </S.CardsContainer>
           ) : (
-            <S.AvisoVazio>Nenhuma OS pendente para este técnico.</S.AvisoVazio>
+            <S.AvisoVazio>
+              {status === "Executor"
+                ? "Nenhuma OS pendente para este técnico."
+                : "Nunhuma OS no nome desse solicitante"}
+            </S.AvisoVazio>
           )}
         </S.ModalBody>
 

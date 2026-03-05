@@ -1,5 +1,9 @@
 import styled from "styled-components";
-
+export const Header = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
 export const HomeContainer = styled.div`
   display: flex;
   flex-flow: row wrap;
@@ -7,12 +11,14 @@ export const HomeContainer = styled.div`
   justify-content: center;
   gap: 30px;
   width: 100vw;
-  min-height: 100vh;
+  min-height: 95vh;
   background-color: #000;
-  padding: 40px 20px;
   box-sizing: border-box;
   font-family: "Roboto", sans-serif;
-  overflow-y: visible; /* Garante que o scroll do navegador apareça */
+  overflow-y: visible;
+  @media (max-width: 1500px) {
+    min-height: 100vh;
+  }
 `;
 
 export const Card = styled.div`
@@ -70,7 +76,6 @@ export const Contador = styled.div`
   font-size: 5rem;
   font-weight: 800;
   line-height: 1;
-  /* Cor muda baseado no status que você passou no JSX */
   color: ${(props) => (props.status === "warning" ? "#fdab3d" : "#00c875")};
   transition: color 0.5s ease;
 `;
@@ -84,9 +89,9 @@ export const BotaoCard = styled.button`
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  width: 100%;
+  width: ${(props) => props.width || "100%"};
+  margin: ${(props) => props.margin || "0"};
   transition: background 0.2s;
-
   &:hover {
     background: #0056b3;
   }

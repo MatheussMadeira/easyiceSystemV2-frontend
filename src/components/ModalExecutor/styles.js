@@ -154,7 +154,7 @@ export const Badge = styled.span`
   font-size: 0.8rem;
   font-weight: bold;
   background: ${(props) =>
-    props.status === "EM ANDAMENTO" ? "#fdab3d" : "#fdab3d"};
+    props.status === "EM PROCESSO" ? "#0073EA" : "#fdab3d"};
   color: white;
 `;
 
