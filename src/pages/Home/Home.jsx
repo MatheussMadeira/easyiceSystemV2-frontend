@@ -500,6 +500,24 @@ export default function Home() {
         </S.Card>
         <S.Card>
           <h3>Ranking Solicitantes</h3>
+          <div
+            style={{
+              display: "flex",
+              gap: "15px",
+              marginBottom: "10px",
+              fontSize: "0.85rem",
+              justifyContent: "center",
+              borderBottom: "1px solid #333",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "#656363", fontSize: "1rem" }}>
+              <b style={{ color: "#c82800" }}>A</b> : Em aberto
+            </span>
+            <span style={{ color: "#656363", fontSize: "1rem" }}>
+              <b style={{ color: "#00aeff" }}>P</b> : Em processo
+            </span>
+          </div>
           <p>Status das OS ativas</p>
           {rankingDataSolicitante.length > 0 ? (
             <S.RankingWrapper>
@@ -576,6 +594,24 @@ export default function Home() {
         {/* RANKING EXECUTORES */}
         <S.Card>
           <h3>Ranking Executores</h3>
+          <div
+            style={{
+              display: "flex",
+              gap: "15px",
+              marginBottom: "10px",
+              fontSize: "0.85rem",
+              justifyContent: "center",
+              borderBottom: "1px solid #333",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "#656363", fontSize: "1rem" }}>
+              <b style={{ color: "#c82800" }}>A</b> : Em aberto
+            </span>
+            <span style={{ color: "#656363", fontSize: "1rem" }}>
+              <b style={{ color: "#00aeff" }}>P</b> : Em processo
+            </span>
+          </div>
           <p>Status das OS ativas</p>
           {rankingDataExecutor.length > 0 ? (
             <S.RankingWrapper>
