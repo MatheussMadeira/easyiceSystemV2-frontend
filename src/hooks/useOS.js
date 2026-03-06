@@ -1,125 +1,112 @@
-import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api";
 
 export const useOS = () => {
-  const [ordens, setOrdens] = useState([]);
-  const [osSelecionada, setOsSelecionada] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [nextNumber, setNextNumber] = useState(null);
+  const queryClient = useQueryClient();
 
-  const [opcoes, setOpcoes] = useState({
-    setores: [],
-    solicitantes: [],
-    executores: [],
-    prioridades: [],
-    situacoes: [],
+  // --- BUSCAS (Queries) ---
+
+  // 1. Buscar todas as OS
+  const { data: ordens = [], isLoading: loadingOs } = useQuery({
+    queryKey: ["ordens"],
+    queryFn: async () => {
+      const res = await api.get("/os");
+      return res.data;
+    },
+    refetchInterval: 15000,
   });
 
-  const useGetNextNumber = async () => {
-    try {
-      const response = await api.get("/os/proximo-numero");
-      setNextNumber(response.data.proximo);
-    } catch (error) {
-      console.error("Erro ao buscar próximo número:", error);
-    }
-  };
+  // 2. Buscar opções dos Selects (Setores, etc)
+  const {
+    data: opcoes = {
+      setores: [],
+      solicitantes: [],
+      executores: [],
+      prioridades: [],
+    },
+    isLoading: loadingOptions,
+  } = useQuery({
+    queryKey: ["opcoes"],
+    queryFn: async () => {
+      const res = await api.get("/os/opcoes");
+      return res.data;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
 
-  const useUpdateInline = async (id, dados) => {
-    try {
-      const response = await api.patch(`/os/${id}/inline`, dados);
-      
-      setOrdens((prev) =>
-        prev.map((os) => (os._id === id ? { ...os, ...response.data } : os))
-      );
-  
-      return response.data;
-    } catch (error) {
-      console.error("Erro no update inline:", error);
-      throw error;
-    }
-  };
+  // 3. Buscar próximo número sequencial
+  const { data: nextNumber = null } = useQuery({
+    queryKey: ["nextNumber"],
+    queryFn: async () => {
+      const res = await api.get("/os/proximo-numero");
+      return res.data.proximo;
+    },
+  });
 
-  const useGetOs = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get("/os");
-      setOrdens(response.data);
-    } catch (error) {
-      console.error(
-        "Erro ao ler ordens:",
-        error.response?.data?.erro || error.message
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  // --- AÇÕES (Mutations) ---
 
-  const useGetOptions = async () => {
-    try {
-      const response = await api.get("/os/opcoes");
-      setOpcoes(response.data);
-    } catch (error) {
-      console.error("Erro ao carregar opções:", error.response?.data?.erro);
-    }
-  };
-
-  const useCreateOs = async (formData) => {
-    try {
-      const response = await api.post("/os", formData, {
+  // 4. Criar nova OS
+  const createMutation = useMutation({
+    mutationFn: async (formData) => {
+      const res = await api.post("/os", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      useGetOs();
-      useGetNextNumber();
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.erro || "Erro ao criar OS");
-    }
-  };
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ordens"] });
+      queryClient.invalidateQueries({ queryKey: ["nextNumber"] });
+    },
+  });
 
-  const useUpdateOs = async (id, formData) => {
-    try {
-      const response = await api.put(`/os/${id}`, formData, {
+  // 5. Atualizar OS (Fechamento/Processo)
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, formData }) => {
+      const res = await api.put(`/os/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      useGetOs();
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.erro || "Erro ao atualizar OS");
-    }
-  };
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ordens"] });
+    },
+  });
 
-  const useFindById = async (id) => {
-    try {
-      const response = await api.get(`/os/${id}`);
-      setOsSelecionada(response.data);
-      return response.data;
-    } catch (error) {
-      console.error("OS não encontrada:", error.response?.data?.erro);
-    }
-  };
+  // 6. Update Inline (Status rápido na tabela)
+  const inlineMutation = useMutation({
+    mutationFn: async ({ id, dados }) => {
+      const res = await api.patch(`/os/${id}/inline`, dados);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ordens"] });
+    },
+  });
 
-  const useDeleteOs = async (id) => {
-    try {
+  // 7. Deletar OS
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
       await api.delete(`/os/${id}`);
-      setOrdens((prev) => prev.filter((os) => os._id !== id));
-    } catch (error) {
-      alert(error.response?.data?.erro || "Erro ao deletar OS");
-    }
-  };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ordens"] });
+    },
+  });
 
   return {
     ordens,
-    osSelecionada,
     opcoes,
-    loading,
-    useGetOs,
-    useGetOptions,
-    useCreateOs,
-    useUpdateOs,
-    useFindById,
-    useDeleteOs,
     nextNumber,
-    useGetNextNumber,
-    useUpdateInline,
+    loading: loadingOs || loadingOptions,
+
+    useCreateOs: createMutation.mutateAsync,
+    useUpdateOs: (id, formData) => updateMutation.mutateAsync({ id, formData }),
+    useUpdateInline: (id, dados) => inlineMutation.mutateAsync({ id, dados }),
+    useDeleteOs: deleteMutation.mutateAsync,
+    useGetOs: () => queryClient.invalidateQueries({ queryKey: ["ordens"] }),
+    useGetOptions: () =>
+      queryClient.invalidateQueries({ queryKey: ["opcoes"] }),
+    useGetNextNumber: () =>
+      queryClient.invalidateQueries({ queryKey: ["nextNumber"] }),
   };
 };

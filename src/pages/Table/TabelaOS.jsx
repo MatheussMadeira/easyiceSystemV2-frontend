@@ -367,7 +367,7 @@ const TabelaOS = () => {
                 <S.Td>
                   {os.arquivoAbertura ? (
                     <a
-                      href={`${API_URL}/uploads/${os.arquivoAbertura}`}
+                      href={`${os.arquivoAbertura}`}
                       target="_blank"
                       rel="noreferrer"
                       style={{

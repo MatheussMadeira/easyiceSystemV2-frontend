@@ -1,25 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useOS } from "../../hooks/useOS";
 import ModalBase from "../../components/Modal/ModalBase";
 import ModalExecutor from "../../components/ModalExecutor/ModalExecutor";
 import * as S from "./styles";
 import Swal from "sweetalert2";
+
 export default function Home() {
   const navigate = useNavigate();
+
+  // 1. Pegamos os dados e funções do novo hook useOS (que agora usa React Query)
   const {
     ordens,
     loading,
     opcoes,
     nextNumber,
-    useGetNextNumber,
-    useGetOs,
-    useGetOptions,
-    useCreateOs,
-    useUpdateOs,
+    useCreateOs, // Agora é uma Mutation
+    useUpdateOs, // Agora é uma Mutation
   } = useOS();
 
-  // Estados dos Modais
+  // Estados dos Modais e UI
   const [modalAberto, setModalAberto] = useState(false);
   const [modalFechamentoAberto, setModalFechamentoAberto] = useState(false);
   const [modalExecutorAberto, setModalExecutorAberto] = useState(false);
@@ -29,6 +29,7 @@ export default function Home() {
   const [dadosModal, setDadosModal] = useState({});
   const [osAtual, setOsAtual] = useState(null);
   const [numeroOSParaBuscar, setNumeroOSParaBuscar] = useState("");
+
   const Toast = Swal.mixin({
     toast: true,
     position: "top-end",
@@ -36,7 +37,6 @@ export default function Home() {
     timer: 3000,
     timerProgressBar: true,
     target: "body",
-
     didOpen: (toast) => {
       toast.style.zIndex = "10000";
       toast.style.backdropFilter = "none";
@@ -45,126 +45,213 @@ export default function Home() {
     },
   });
 
-  function abrirDetalhes(nome, tipo) {
-    if (tipo === "Executor") {
-      const filtradasExecutor = ordens.filter(
-        (os) =>
-          os.executor === nome &&
-          (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO")
-      );
-      setOsFiltradas(filtradasExecutor);
-      setExecutorNome(nome);
-    } else {
-      const filtradasSolicitante = ordens.filter(
-        (os) =>
-          os.solicitante === nome &&
-          (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO")
-      );
-      setOsFiltradas(filtradasSolicitante);
-      setExecutorNome(nome);
+  // --- FUNÇÕES DE AÇÃO ---
+
+  const handleCriar = async () => {
+    const obrigatorios = fieldsAbertura
+      .filter((f) => f.type !== "file")
+      .map((f) => f.name);
+    const faltantes = obrigatorios.filter(
+      (campo) =>
+        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
+    );
+
+    if (faltantes.length > 0 || !dadosModal.arquivoAbertura) {
+      Toast.fire({
+        icon: "warning",
+        title: !dadosModal.arquivoAbertura
+          ? "A foto de abertura é obrigatória!"
+          : "Preencha todos os campos!",
+      });
+      return;
     }
+
+    try {
+      const formData = new FormData();
+      Object.keys(dadosModal).forEach((key) =>
+        formData.append(key, dadosModal[key])
+      );
+
+      // 2. Chamada via React Query (já limpa o cache e atualiza a lista no sucesso)
+      const novaOSDoBanco = await useCreateOs(formData);
+
+      setModalAberto(false);
+      setDadosModal({});
+
+      Swal.fire({
+        title: "OS Aberta com Sucesso! 🚀",
+        text: `A Ordem de Serviço #${
+          novaOSDoBanco?.numeroOS || nextNumber
+        } foi registrada.`,
+        icon: "success",
+        showCancelButton: true,
+        confirmButtonColor: "#25D366",
+        confirmButtonText: "Enviar para WhatsApp",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.open(
+            gerarMensagemWhatsApp(novaOSDoBanco, "abertura"),
+            "_blank"
+          );
+        }
+      });
+    } catch (err) {
+      Swal.fire("Erro", "Não foi possível criar a OS: " + err.message, "error");
+    }
+  };
+
+  const handleAtualizarStatus = async () => {
+    const {
+      situacao,
+      executor,
+      descricaoProcesso,
+      descricaoFechamento,
+      arquivoFechamento,
+    } = dadosModal;
+
+    if (situacao === "EM PROCESSO" && (!descricaoProcesso || !executor)) {
+      Toast.fire({
+        icon: "warning",
+        title: "Informe o executor e o andamento!",
+      });
+      return;
+    }
+    if (
+      situacao === "CONCLUÍDO" &&
+      (!descricaoFechamento || !arquivoFechamento || !executor)
+    ) {
+      Toast.fire({
+        icon: "warning",
+        title: "Preencha o relatório e a foto final!",
+      });
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      Object.keys(dadosModal).forEach((key) =>
+        formData.append(key, dadosModal[key])
+      );
+
+      // 3. Chamada via React Query
+      await useUpdateOs(osAtual._id, formData);
+
+      setModalFechamentoAberto(false);
+      setDadosModal({});
+      setNumeroOSParaBuscar("");
+
+      Swal.fire({
+        title: "Atualizado!",
+        text: `A OS foi movida para: ${situacao}`,
+        icon: "success",
+      });
+    } catch (err) {
+      Swal.fire("Erro", err.message, "error");
+    }
+  };
+
+  // --- LÓGICA DE FILTROS E RANKINGS ---
+  // (Mantida igual, pois usa o array 'ordens' que vem do hook)
+
+  function abrirDetalhes(nome, tipo) {
+    const filtradas = ordens.filter(
+      (os) =>
+        (tipo === "Executor" ? os.executor : os.solicitante) === nome &&
+        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO")
+    );
+    setOsFiltradas(filtradas);
+    setExecutorNome(nome);
     setModalExecutorAberto(true);
     setIsSolicitante(tipo);
   }
 
-  // Estados de Dados
+  const prepararFechamento = () => {
+    const osEncontrada = ordens.find((os) => os.numeroOS == numeroOSParaBuscar);
+    if (!osEncontrada)
+      return Toast.fire({ icon: "warning", title: "OS não encontrada!" });
+    if (osEncontrada.situacao === "CONCLUÍDO")
+      return alert("Esta OS já está fechada!");
 
-  useEffect(() => {
-    useGetOs();
-    useGetOptions();
-    useGetNextNumber();
-  }, []);
+    setOsAtual(osEncontrada);
+    setDadosModal({ ...osEncontrada });
+    setModalFechamentoAberto(true);
+  };
 
-  // Lógica de contagem e próxima OS
-  const osAbertas = ordens.filter(
-    (os) => os.situacao === "EM ABERTO" || os.situacao === "EM ANDAMENTO"
+  // Lógica de Ranking
+  const osParaRanking = ordens.filter(
+    (os) =>
+      (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO") &&
+      os.executor
   );
-  const numAbertas = osAbertas.length;
 
-  const proximaOS =
-    ordens.reduce((max, os) => Math.max(max, os.numeroOS || 0), 0) + 1;
+  const contagem = (tipo) => {
+    const mapa = osParaRanking.reduce((acc, os) => {
+      const nome = os[tipo];
+      if (!acc[nome]) acc[nome] = { aberto: 0, processo: 0, total: 0 };
+      os.situacao === "EM ABERTO" ? acc[nome].aberto++ : acc[nome].processo++;
+      acc[nome].total++;
+      return acc;
+    }, {});
+    return Object.entries(mapa)
+      .map(([nome, stats]) => ({ nome, ...stats }))
+      .sort((a, b) => b.total - a.total);
+  };
 
-  // --- CONFIGURAÇÃO DOS CAMPOS ---
-  const NOMES_PARA_REMOVER_SOLICITANTES = [
-    "Bruno",
-    "Frederico",
-    "THIAGO FREITAS",
-    "Welliton Cruz",
-    "Eduardo",
-    "GABRIEL",
-    "José",
-    "NATANAEL",
-    "FREDERICO MADEIRA",
-    "NATANAEL",
-  ];
-  const NOMES_PARA_ADICIONAR_SOLICITANTES = [
-    "José Rodrigues",
-    "Eduardo(Dudu)",
-    "Gabriel RH",
-    "José Rodrigues",
-    "José Rodrigues",
-    "Natanael",
-    "Frederico Madeira",
-    "Alan Manutenção",
-    "Gabriel Camara",
-    "Gabriela SST",
-    "Jean Camara",
-  ];
-  const NOMES_PARA_REMOVER_EXECUTORES = ["josé", "José", "Não Atribuído"];
-  const NOMES_PARA_ADICIONAR_EXECUTORES = ["José Rodrigues", "Gabriel Camara"];
-  const NOMES_PARA_ADICIONAR_SETOR = ["FRUTA CONGELADA", "ROTULAGEM"];
-  const NOMES_PARA_REMOVER_SETOR = [
-    "ACAI",
-    "SEGURANÇA",
-    "FRUTA CONG",
-    "ROTULADORA",
-    "ACAI",
-    "Segurança",
-  ];
-  const NOMES_PARA_REMOVER_PRIORIDADE = [
-    "Baixa",
-    "Média",
-    "NORMAL",
-    "Alta",
-    "Normal",
-  ];
-  const NOMES_PARA_ADICIONAR_PRIORIDADE = [
-    "Emergencia (Atendimento Imediato)",
-    "Alta (No decorrer do dia)",
-    "Normal (Sequência de execução)",
-  ];
+  const rankingDataSolicitante = contagem("solicitante");
+  const rankingDataExecutor = contagem("executor");
 
-  const solicitantesFinais = [
-    ...new Set([
-      ...NOMES_PARA_ADICIONAR_SOLICITANTES,
-      ...(opcoes.solicitantes || []),
-    ]),
-  ]
-    .filter((nome) => !NOMES_PARA_REMOVER_SOLICITANTES.includes(nome))
-    .sort();
-  const executoresFinais = [
-    ...new Set([
-      ...NOMES_PARA_ADICIONAR_EXECUTORES,
-      ...(opcoes.executores || []),
-    ]),
-  ]
+  // --- CONFIGURAÇÃO DE CAMPOS ---
+  // (Filtros finais de nomes para os selects usando 'opcoes')
+  const filtrar = (lista, add, rem) =>
+    [...new Set([...add, ...(lista || [])])]
+      .filter((n) => !rem.includes(n))
+      .sort();
 
-    .filter((nome) => !NOMES_PARA_REMOVER_EXECUTORES.includes(nome))
-    .sort();
-  const setoresFinais = [
-    ...new Set([...NOMES_PARA_ADICIONAR_SETOR, ...(opcoes.setores || [])]),
-  ]
-    .filter((nome) => !NOMES_PARA_REMOVER_SETOR.includes(nome))
-    .sort();
+  const solicitantesFinais = filtrar(
+    opcoes.solicitantes,
+    [
+      "José Rodrigues",
+      "Eduardo(Dudu)",
+      "Gabriel RH",
+      "Natanael",
+      "Frederico Madeira",
+      "Alan Manutenção",
+      "Gabriel Camara",
+      "Gabriela SST",
+      "Jean Camara",
+    ],
+    [
+      "Bruno",
+      "Frederico",
+      "THIAGO FREITAS",
+      "Welliton Cruz",
+      "Eduardo",
+      "GABRIEL",
+      "José",
+      "NATANAEL",
+      "FREDERICO MADEIRA",
+    ]
+  );
+  const executoresFinais = filtrar(
+    opcoes.executores,
+    ["José Rodrigues", "Gabriel Camara"],
+    ["josé", "José", "Não Atribuído"]
+  );
+  const setoresFinais = filtrar(
+    opcoes.setores,
+    ["FRUTA CONGELADA", "ROTULAGEM"],
+    ["ACAI", "SEGURANÇA", "FRUTA CONG", "ROTULADORA"]
+  );
+  const prioridadesFinais = filtrar(
+    opcoes.prioridades,
+    [
+      "Emergencia (Atendimento Imediato)",
+      "Alta (No decorrer do dia)",
+      "Normal (Sequência de execução)",
+    ],
+    ["Baixa", "Média", "NORMAL", "Alta", "Normal"]
+  );
 
-  const prioridadesFinais = [
-    ...new Set([
-      ...NOMES_PARA_ADICIONAR_PRIORIDADE,
-      ...(opcoes.prioridades || []),
-    ]),
-  ]
-    .filter((nome) => !NOMES_PARA_REMOVER_PRIORIDADE.includes(nome))
-    .sort();
   const fieldsAbertura = [
     {
       name: "setor",
@@ -198,11 +285,11 @@ export default function Home() {
   const fieldsFechamento = [
     {
       name: "situacao",
-      label: "O que deseja fazer agora?",
+      label: "O que deseja fazer?",
       type: "select",
       options: [
-        { label: "Colocar em Processo (Andamento)", value: "EM PROCESSO" },
-        { label: "Finalizar OS (Concluir)", value: "CONCLUÍDO" },
+        { label: "Colocar em Processo", value: "EM PROCESSO" },
+        { label: "Finalizar OS", value: "CONCLUÍDO" },
       ],
     },
     {
@@ -215,7 +302,7 @@ export default function Home() {
       ? [
           {
             name: "descricaoProcesso",
-            label: "O que está sendo feito? (Descrição do Andamento)",
+            label: "Descrição do Andamento",
             type: "textarea",
           },
         ]
@@ -228,217 +315,27 @@ export default function Home() {
             label: "Relatório Técnico Final",
             type: "textarea",
           },
-          {
-            name: "arquivoFechamento",
-            label: "Foto do Serviço Finalizado",
-            type: "file",
-          },
+          { name: "arquivoFechamento", label: "Foto Finalizada", type: "file" },
         ]
       : []),
   ];
 
-  const handleCriar = async () => {
-    const obrigatorios = fieldsAbertura
-      .filter((f) => f.type !== "file")
-      .map((f) => f.name);
-
-    const faltantes = obrigatorios.filter(
-      (campo) =>
-        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
-    );
-
-    const faltaArquivo = !dadosModal.arquivoAbertura;
-
-    if (faltantes.length > 0) {
-      Toast.fire({
-        icon: "warning",
-        title: "Preencha todos os campos!",
-      });
-      return;
-    } else if (faltaArquivo) {
-      Toast.fire({
-        icon: "warning",
-        title: "A foto de abertura é obrigatória!",
-      });
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      Object.keys(dadosModal).forEach((key) => {
-        if (key !== "arquivoAbertura") {
-          formData.append(key, dadosModal[key]);
-        }
-      });
-
-      if (dadosModal.arquivoAbertura) {
-        formData.append("arquivoAbertura", dadosModal.arquivoAbertura);
-      }
-
-      const novaOSDoBanco = await useCreateOs(formData);
-
-      setModalAberto(false);
-      setDadosModal({});
-      useGetOs();
-      useGetNextNumber();
-
-      Swal.fire({
-        title: "OS Aberta com Sucesso! 🚀",
-        text: `A Ordem de Serviço #${
-          novaOSDoBanco?.numeroOS || nextNumber
-        } foi registrada no sistema.`,
-        icon: "success",
-        showCancelButton: true,
-        confirmButtonColor: "#25D366",
-        cancelButtonColor: "#3085d6",
-        confirmButtonText: "Enviar para WhatsApp",
-      }).then((result) => {
-        if (result.isConfirmed) {
-          const link = gerarMensagemWhatsApp(novaOSDoBanco, "abertura");
-          window.open(link, "_blank");
-        }
-      });
-    } catch (err) {
-      Swal.fire("Erro", "Não foi possível criar a OS: " + err.message, "error");
-    }
-  };
-
-  const handleAtualizarStatus = async () => {
-    const situacao = dadosModal.situacao;
-
-    if (situacao === "EM PROCESSO") {
-      if (!dadosModal.descricaoProcesso || !dadosModal.executor) {
-        Toast.fire({
-          icon: "warning",
-          title: "Informe o executor e a descrição do andamento!",
-        });
-        return;
-      }
-    } else if (situacao === "CONCLUÍDO") {
-      if (
-        !dadosModal.descricaoFechamento ||
-        !dadosModal.arquivoFechamento ||
-        !dadosModal.executor
-      ) {
-        Toast.fire({
-          icon: "warning",
-          title: "Para finalizar, preencha o relatório e a foto!",
-        });
-        return;
-      }
-    } else {
-      Toast.fire({ icon: "warning", title: "Selecione o que deseja fazer!" });
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      Object.keys(dadosModal).forEach((key) => {
-        formData.append(key, dadosModal[key]);
-      });
-
-      const osAtualizada = await useUpdateOs(osAtual._id, formData);
-
-      setModalFechamentoAberto(false);
-      setDadosModal({});
-      setNumeroOSParaBuscar("");
-      useGetOs();
-
-      Swal.fire({
-        title: "Atualizado!",
-        text: `A OS foi movida para: ${situacao}`,
-        icon: "success",
-        confirmButtonColor: "#25D366",
-        confirmButtonText: "OK",
-      });
-    } catch (err) {
-      Swal.fire("Erro", err.message, "error");
-    }
-  };
-
-  const prepararFechamento = () => {
-    const osEncontrada = ordens.find((os) => os.numeroOS == numeroOSParaBuscar);
-
-    if (!osEncontrada) {
-      Toast.fire({
-        icon: "warning",
-        title: "Ordem de serviço não encontrada!",
-      });
-      return;
-    }
-
-    if (
-      osEncontrada.situacao !== "EM ABERTO" &&
-      osEncontrada.situacao !== "EM ANDAMENTO"
-    ) {
-      alert(`Esta OS não pode ser fechada pois está: ${osEncontrada.situacao}`);
-      return;
-    }
-
-    setOsAtual(osEncontrada);
-    setDadosModal({ ...osEncontrada });
-    setModalFechamentoAberto(true);
-  };
-
-  const osParaRanking = ordens.filter(
-    (os) =>
-      (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO") &&
-      os.executor
-  );
-  const gerarContagemStatus = (acc, nome, situacao) => {
-    if (!acc[nome]) {
-      acc[nome] = { aberto: 0, processo: 0, total: 0 };
-    }
-    if (situacao === "EM ABERTO") acc[nome].aberto++;
-    if (situacao === "EM PROCESSO") acc[nome].processo++;
-    acc[nome].total = acc[nome].aberto + acc[nome].processo;
-    return acc;
-  };
-
-  const contagemPorSolicitante = osParaRanking.reduce(
-    (acc, os) => gerarContagemStatus(acc, os.solicitante, os.situacao),
-    {}
-  );
-
-  const contagemPorExecutor = osParaRanking.reduce(
-    (acc, os) => gerarContagemStatus(acc, os.executor, os.situacao),
-    {}
-  );
-
-  const rankingDataSolicitante = Object.entries(contagemPorSolicitante)
-    .map(([nome, stats]) => ({ nome, ...stats }))
-    .sort((a, b) => b.total - a.total);
-
-  const rankingDataExecutor = Object.entries(contagemPorExecutor)
-    .map(([nome, stats]) => ({ nome, ...stats }))
-    .sort((a, b) => b.total - a.total);
-
-  const gerarMensagemWhatsApp = (os, tipo = "abertura") => {
+  const gerarMensagemWhatsApp = (os, tipo) => {
     const isAbertura = tipo === "abertura";
-    const titulo = isAbertura ? "*NOVA OS ABERTA* ❄️" : "*OS FINALIZADA* ✅";
-    const numero = isAbertura ? os.numeroOS || nextNumber : numeroOSParaBuscar;
-    const linkFoto = isAbertura ? os.arquivoAbertura : os.arquivoFechamento;
-    const campoFoto = linkFoto ? `\n🖼️ *Ver Foto:* ${linkFoto}` : "";
-
-    const relatorioTecnico = !isAbertura
-      ? `\n🛠️ *Relatório de fechamento:* ${
-          os.descricaoFechamento || "Concluído"
-        }\n📦 *Peças utilizadas:* ${os.pecasUtilizadas || "Nenhuma"}`
-      : "";
-
-    const texto =
-      `${titulo}\n\n` +
-      `🚨 *Prioridade:* ${os.prioridade}\n` +
-      `📌 *OS:* #${numero}\n` +
-      `📍 *Setor:* ${os.setor}\n` +
-      `⚙️ *Equipamento:* ${os.equipamento}\n` +
-      `👤 *Solicitante:* ${os.solicitante}\n` +
-      `👤 *Executor:* ${os.executor || "Não definido"}\n` +
-      `📝 *Descrição:* ${os.descricaoAbertura}` +
-      relatorioTecnico +
-      campoFoto;
+    const texto = `*${
+      isAbertura ? "NOVA OS ABERTA" : "OS FINALIZADA"
+    }* ❄️\n\n🚨 *Prioridade:* ${os.prioridade}\n📌 *OS:* #${
+      os.numeroOS || nextNumber
+    }\n📍 *Setor:* ${os.setor}\n⚙️ *Equipamento:* ${
+      os.equipamento
+    }\n👤 *Solicitante:* ${os.solicitante}\n👤 *Executor:* ${
+      os.executor
+    }\n📝 *Descrição:* ${os.descricaoAbertura}${
+      !isAbertura ? `\n🛠️ *Relatório:* ${os.descricaoFechamento}` : ""
+    }\n🖼️ *Foto:* ${isAbertura ? os.arquivoAbertura : os.arquivoFechamento}`;
     return `https://wa.me/?text=${encodeURIComponent(texto)}`;
   };
+
   return (
     <div style={{ backgroundColor: "#000", overflowX: "hidden" }}>
       <S.HomeContainer>
@@ -462,7 +359,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* CARD ABERTURA */}
         <S.Card>
           <h3>EasyIce - Abrir Nova OS</h3>
           <p>PRÓXIMA OS DISPONÍVEL:</p>
@@ -472,13 +368,12 @@ export default function Home() {
           </S.BotaoCard>
         </S.Card>
 
-        {/* CARD FECHAMENTO */}
         <S.Card>
           <h3>EasyIce - Fechar OS Existente</h3>
           <h3 style={{ color: "red" }}>
-            OBS: A OS DEVE SER FINALIZADA PELO SOLICITANTE
+            A OS DEVE SER FINALIZADA PELO SOLICITANTE
           </h3>
-          <p>DIGITE O NÚMERO DA OS PARA FINALIZAR:</p>
+          <p>NÚMERO DA OS:</p>
           <input
             type="number"
             placeholder="Ex: 1020"
@@ -490,7 +385,6 @@ export default function Home() {
               width: "80%",
               textAlign: "center",
               borderRadius: "8px",
-              border: "1px solid #ccc",
               marginBottom: "10px",
             }}
           />
@@ -498,184 +392,99 @@ export default function Home() {
             Localizar e Finalizar
           </S.BotaoCard>
         </S.Card>
-        <S.Card>
-          <h3>Ranking Solicitantes</h3>
-          <div
-            style={{
-              display: "flex",
-              gap: "15px",
-              marginBottom: "10px",
-              fontSize: "0.85rem",
-              justifyContent: "center",
-              borderBottom: "1px solid #333",
-              paddingBottom: "8px",
-            }}
-          >
-            <span style={{ color: "#656363", fontSize: "1rem" }}>
-              <b style={{ color: "#c82800" }}>A</b> : Em aberto
-            </span>
-            <span style={{ color: "#656363", fontSize: "1rem" }}>
-              <b style={{ color: "#00aeff" }}>P</b> : Em processo
-            </span>
-          </div>
-          <p>Status das OS ativas</p>
-          {rankingDataSolicitante.length > 0 ? (
-            <S.RankingWrapper>
-              {rankingDataSolicitante.map((item, index) => (
-                <div
-                  key={item.nome}
-                  onClick={() => abrirDetalhes(item.nome, "Status")}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    width: "100%",
-                    cursor: "pointer",
-                    padding: "10px 0",
-                    borderBottom:
-                      index !== rankingDataSolicitante.length - 1
-                        ? "1px solid #eee"
-                        : "none",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontWeight: "600",
-                      fontSize: "1.2rem",
-                      color: "#333",
-                    }}
-                  >
-                    {index + 1}º {item.nome}
-                  </span>
 
+        {/* RANKINGS */}
+        {[
+          {
+            title: "Ranking Solicitantes",
+            data: rankingDataSolicitante,
+            type: "Status",
+          },
+          {
+            title: "Ranking Executores",
+            data: rankingDataExecutor,
+            type: "Executor",
+          },
+        ].map((rk) => (
+          <S.Card key={rk.title}>
+            <h3>{rk.title}</h3>
+            <div
+              style={{
+                display: "flex",
+                gap: "15px",
+                marginBottom: "10px",
+                fontSize: "0.85rem",
+                justifyContent: "center",
+                borderBottom: "1px solid #333",
+                paddingBottom: "8px",
+              }}
+            >
+              <span style={{ color: "#656363" }}>
+                <b style={{ color: "#c82800" }}>A</b> : Em aberto
+              </span>
+              <span style={{ color: "#656363" }}>
+                <b style={{ color: "#00aeff" }}>P</b> : Em processo
+              </span>
+            </div>
+            {rk.data.length > 0 ? (
+              <S.RankingWrapper>
+                {rk.data.map((item, idx) => (
                   <div
+                    key={item.nome}
+                    onClick={() => abrirDetalhes(item.nome, rk.type)}
                     style={{
                       display: "flex",
-                      gap: "5px",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      padding: "10px 0",
+                      borderBottom:
+                        idx !== rk.data.length - 1 ? "1px solid #eee" : "none",
                     }}
                   >
-                    {/* Badge de Aberto */}
                     <span
                       style={{
-                        backgroundColor: "#c82800",
-                        color: "white",
-                        padding: "2px 8px",
-                        borderRadius: "6px",
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
+                        fontWeight: "600",
+                        fontSize: "1.2rem",
+                        color: "#333",
                       }}
-                      title="Abertas"
                     >
-                      {item.aberto} A
+                      {idx + 1}º {item.nome}
                     </span>
-                    {/* Badge de Processo */}
-                    <span
-                      style={{
-                        backgroundColor: "#00aeff",
-                        color: "white",
-                        padding: "2px 8px",
-                        borderRadius: "6px",
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
-                      }}
-                      title="Em Processo"
-                    >
-                      {item.processo} P
-                    </span>
+                    <div style={{ display: "flex", gap: "5px" }}>
+                      <span
+                        style={{
+                          backgroundColor: "#c82800",
+                          color: "white",
+                          padding: "2px 8px",
+                          borderRadius: "6px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {item.aberto} A
+                      </span>
+                      <span
+                        style={{
+                          backgroundColor: "#00aeff",
+                          color: "white",
+                          padding: "2px 8px",
+                          borderRadius: "6px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {item.processo} P
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </S.RankingWrapper>
-          ) : (
-            <S.RankingVazio>Ninguém com OS ativa</S.RankingVazio>
-          )}
-        </S.Card>
+                ))}
+              </S.RankingWrapper>
+            ) : (
+              <S.RankingVazio>Ninguém com OS ativa</S.RankingVazio>
+            )}
+          </S.Card>
+        ))}
 
-        {/* RANKING EXECUTORES */}
-        <S.Card>
-          <h3>Ranking Executores</h3>
-          <div
-            style={{
-              display: "flex",
-              gap: "15px",
-              marginBottom: "10px",
-              fontSize: "0.85rem",
-              justifyContent: "center",
-              borderBottom: "1px solid #333",
-              paddingBottom: "8px",
-            }}
-          >
-            <span style={{ color: "#656363", fontSize: "1rem" }}>
-              <b style={{ color: "#c82800" }}>A</b> : Em aberto
-            </span>
-            <span style={{ color: "#656363", fontSize: "1rem" }}>
-              <b style={{ color: "#00aeff" }}>P</b> : Em processo
-            </span>
-          </div>
-          <p>Status das OS ativas</p>
-          {rankingDataExecutor.length > 0 ? (
-            <S.RankingWrapper>
-              {rankingDataExecutor.map((item, index) => (
-                <div
-                  key={item.nome}
-                  onClick={() => abrirDetalhes(item.nome, "Executor")}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    width: "100%",
-                    cursor: "pointer",
-                    padding: "10px 0",
-                    borderBottom:
-                      index !== rankingDataExecutor.length - 1
-                        ? "1px solid #eee"
-                        : "none",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontWeight: "600",
-                      fontSize: "1.2rem",
-                      color: "#333",
-                    }}
-                  >
-                    {index + 1}º {item.nome}
-                  </span>
-
-                  <div style={{ display: "flex", gap: "5px" }}>
-                    <span
-                      style={{
-                        backgroundColor: "#c82800",
-                        color: "white",
-                        padding: "2px 8px",
-                        borderRadius: "6px",
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {item.aberto} A
-                    </span>
-                    <span
-                      style={{
-                        backgroundColor: "#00aeff",
-                        color: "white",
-                        padding: "2px 8px",
-                        borderRadius: "6px",
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {item.processo} P
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </S.RankingWrapper>
-          ) : (
-            <S.RankingVazio>Ninguém com OS ativa</S.RankingVazio>
-          )}
-        </S.Card>
-
+        {/* MODAIS */}
         <ModalBase
           isOpen={modalAberto}
           onClose={() => setModalAberto(false)}
@@ -700,6 +509,7 @@ export default function Home() {
           setData={setDadosModal}
           onSubmit={handleAtualizarStatus}
         />
+
         <ModalExecutor
           isOpen={modalExecutorAberto}
           onClose={() => {
