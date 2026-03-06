@@ -1,5 +1,6 @@
 import React from "react";
 import * as S from "./styles";
+import { useEffect } from "react";
 
 const ModalBase = ({
   isOpen,
@@ -11,6 +12,17 @@ const ModalBase = ({
   data,
   setData,
 }) => {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleChange = (name, value) => {
@@ -21,23 +33,14 @@ const ModalBase = ({
     <S.Overlay onClick={onClose}>
       <S.ModalContainer onClick={(e) => e.stopPropagation()}>
         <S.ModalHeader>
-          <h2>{title}</h2>
-          {subtitle && (
-            <p
-              style={{
-                color: "#666",
-                fontSize: "1rem",
-                marginTop: "5px",
-                fontWeight: "500",
-                backgroundColor: "#f9f9f9",
-                padding: "5px 10px",
-                borderRadius: "4px",
-                borderLeft: "4px solid #0073ea",
-              }}
-            >
-              {subtitle}
-            </p>
-          )}
+          <div>
+            <h2>{title}</h2>
+            {subtitle && (
+              <S.SubtitleBox>
+                <p>{subtitle}</p>
+              </S.SubtitleBox>
+            )}
+          </div>
           <button onClick={onClose}>&times;</button>
         </S.ModalHeader>
 

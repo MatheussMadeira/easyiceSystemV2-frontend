@@ -1,477 +1,295 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useOS } from "../../hooks/useOS";
 import * as S from "./styles";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../services/api";
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import * as H from "../../components/MenuHamburguer/menu";
 
 const TabelaOS = () => {
-  const API_URL = "http://localhost:3001";
-  const { ordens, loading, useGetOs, useDeleteOs, useUpdateInline } = useOS();
+  const { useDeleteOs, useUpdateInline } = useOS();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  useEffect(() => {
-    useGetOs();
-  }, []);
-  useEffect(() => {
-    if (ordens.length > 0) {
-      console.log("DEBUG BACKEND - Primeira OS da lista:", ordens[0]);
+  const { data: ordens = [], isLoading } = useQuery({
+    queryKey: ["ordens"],
+    queryFn: async () => {
+      const res = await api.get("/os");
+      return res.data;
+    },
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: opcoes } = useQuery({
+    queryKey: ["opcoes"],
+    queryFn: async () => {
+      const res = await api.get("/os/opcoes");
+      return res.data;
+    },
+    staleTime: 600000,
+  });
+
+  const handleNavigation = (path) => {
+    if (location.pathname === path) {
+      setMenuAberto(false);
+      return;
     }
-  }, [ordens]);
-  const formatarData = (data) => {
-    if (!data) return "-";
+    setIsNavigating(true);
+    setMenuAberto(false);
 
-    const d = new Date(data);
-    if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return "-";
-
-    const horas = d.getHours();
-    const minutos = d.getMinutes();
-
-    if ((horas === 6 || horas === 0 || horas === 3) && minutos === 0) {
-      return d.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    }
-
-    return d.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    setTimeout(() => {
+      navigate(path);
+    }, 500);
   };
-  const getPriorityColor = (prioridade) => {
+  const getStatusColor = (s) => {
     const cores = {
-      ALTA: "#df2f4a", // Vermelho (Urgente)
-      MÉDIA: "#fdab3d", // Laranja/Amarelo
-      BAIXA: "#00c875", // Verde
-      NORMAL: "#c4c4c4", // Cinza
+      CONCLUÍDO: "#10b981",
+      "EM ABERTO": "#f59e0b",
+      "EM PROCESSO": "#3b82f6",
+      CANCELADA: "#ef4444",
     };
-    return cores[prioridade?.toUpperCase()] || "#c4c4c4";
-  };
-  const getStatusColor = (status) => {
-    const cores = {
-      CONCLUÍDO: "#00c875",
-      "EM ABERTO": "#fdab3d",
-      "EM PROCESSO": "#579bfc",
-      CANCELADA: "#df2f4a",
-    };
-    return cores[status] || "#c4c4c4";
+    return cores[s] || "#27272a";
   };
 
-  // INLINE TABLE
-
-  const handleUpdateInline = async (id, campo, valorOriginal, novoValor) => {
-    if (valorOriginal === novoValor) return;
-
-    try {
-      const dadosParaAtualizar = { [campo]: novoValor };
-
-      console.log("Enviando atualização:", dadosParaAtualizar);
-
-      await useUpdateInline(id, dadosParaAtualizar);
-
-      console.log(`Campo ${campo} atualizado com sucesso!`);
-    } catch (error) {
-      console.error("Erro na atualização inline:", error);
-      alert("Não foi possível salvar a alteração.");
-    }
+  const handleUpdate = (id, campo, valor) => {
+    useUpdateInline(id, { [campo]: valor });
   };
-  const LISTA_SETORES = [
-    "ACAI",
-    "ADMINISTRATIVO",
-    "AÇAÍ",
-    "BANHEIROS",
-    "BOMBOM DE FRUTA",
-    "CAMARAS",
-    "COMERCIAL",
-    "DML",
-    "EXPEDICAO",
-    "FRUTA CONG",
-    "GALPÃO CINZA",
-    "GALPÃO ROXO",
-    "HIGIENIZACAO",
-    "INFRA ESTRUTURA",
-    "LOJA",
-    "MEZANINO",
-    "PICOLE",
-    "PRODUÇÕES",
-    "QUALIDADE",
-    "REFEITORIO",
-    "RH",
-    "ROTULADORA",
-    "SALA DE DILUIÇÃO",
-    "SALA DE REUNIÃO",
-    "SALA INVERSORES",
-    "SEGURANCA/TI",
-    "SEGURANÇA",
-    "SORVETE",
-    "VESTIARIOS",
-    "VEÍCULOS",
-    "ÁREA EXTERNA",
-  ];
-  const LISTA_SOLICITANTES = [
-    "Bruno",
-    "Cláudio Bispo",
-    "Eduardo",
-    "Everton Melo",
-    "FREDERICO MADEIRA",
-    "Frederico",
-    "GABRIEL",
-    "Italo",
-    "José",
-    "Mariane",
-    "NATANAEL",
-    "Raul",
-    "THIAGO FREITAS",
-    "Thiago Bastos",
-    "Thiago Freitas",
-    "Wasley",
-    "Wellington Luiz",
-    "Welliton Cruz",
-  ];
-  const LISTA_EXECUTORES = [
-    "Alan",
-    "Claudio Bispo",
-    "Everton Melo",
-    "Frederico Madeira",
-    "Jean Camara",
-    "José",
-    "josé",
-  ];
-  const getCorExecutor = (nome) => {
-    if (!nome) return "#f1f3f5";
-
-    const n = nome.toUpperCase();
-
-    // Azul Royal (Técnicos Principais)
-    if (n.includes("ALAN")) return "#5797ff";
-
-    // Verde Bandeira Suave (Manutenção Geral)
-    if (n.includes("CLÁUDIO") || n.includes("CLAUDIO")) return "#00c875";
-
-    if (n.includes("JOSÉ") || n.includes("CLAUDIO")) return "#7f4232";
-
-    // Roxo Vibrante (Especialistas)
-    if (n.includes("EVERTON")) return "#a25ddc";
-
-    // Laranja Intenso (Liderança/Supervisão)
-    if (n.includes("FREDERICO") || n.includes("GABRIEL")) return "#ffad33";
-
-    // Rosa Choque/Magenta (Suporte/Outros)
-    if (n.includes("JEAN")) return "#e2445c";
-
-    return "#c4c4c4"; // Cinza sólido para nomes não mapeados
-  };
-  const getCorPersonalizada = (nome) => {
-    if (!nome) return "#f1f3f5";
-
-    const n = nome.toUpperCase();
-
-    // Amarelo / Laranja (Diretoria/Liderança)
-    if (n.includes("GABRIEL") || n.includes("FREDERICO")) return "#ffeed2";
-
-    // Azul (Produção/Operacional)
-    if (n.includes("WASLEY") || n.includes("EVERTON") || n.includes("PICOLE"))
-      return "#e2e4f9";
-
-    // Verde (Qualidade/Segurança)
-    if (n.includes("MARIANE") || n.includes("CLÁUDIO BISPO")) return "#dff0d8";
-
-    // Ciano/Azul Claro (TI/Infra)
-    if (n.includes("ITALO") || n.includes("JOSÉ")) return "#e1f5fe";
-
-    // Roxo/Rosa (Outros)
-    if (n.includes("THIAGO") || n.includes("WELLINGTON")) return "#f1e5f9";
-
-    return "#f1e5f9"; // Cinza padrão para o restante
-  };
-  ////////////////////////////////////////////////
-
-  if (loading) return <div>Carregando...</div>;
 
   return (
-    <S.PaginaContainer>
-      <S.HeaderFixo>
-        <h1 style={{ fontSize: "26px" }}>Ordens de Serviço</h1>
-      </S.HeaderFixo>
+    <div>
+      {(isLoading || isNavigating) && (
+        <H.TransitionOverlay>
+          <H.Spinner />
+          <h2>Sincronizando base de dados...</h2>
+        </H.TransitionOverlay>
+      )}
 
-      <S.TabelaWrapper>
-        <S.TabelaStyled>
-          <thead>
-            <S.TrHeader>
-              <S.Th>Nº OS</S.Th>
-              <S.Th>Data Abertura</S.Th>
-              <S.Th>Setor</S.Th>
-              <S.Th>Solicitante</S.Th>
-              <S.Th>Executor</S.Th>
-              <S.Th>Equipamento</S.Th>
-              <S.Th>Descrição</S.Th>
-              <S.Th>Status</S.Th>
-              <S.Th>Prioridade</S.Th>
-              <S.Th>Arquivos Abertura</S.Th>
-              <S.Th>Data Fechamento</S.Th>
-              <S.Th>Peças</S.Th>
-              <S.Th>Valor Peças</S.Th>
-              <S.Th>Arquivos Fechamento</S.Th>
-              <S.Th>Obs Fechamento</S.Th>
-              <S.Th>Ações</S.Th>
-            </S.TrHeader>
-          </thead>
-          <tbody>
-            {ordens.map((os) => (
-              <tr key={os._id}>
-                <S.Td style={{ color: "#0073ea", fontWeight: "500" }}>
-                  #{os.numeroOS}
-                </S.Td>
-                <S.Td>{formatarData(os.createdAt || os.dataAbertura)}</S.Td>
-                <S.TdSelect width="180px">
-                  <S.SelectIdentificacao
-                    value={os.setor?.trim()}
-                    onChange={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "setor",
-                        os.setor,
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="">Selecione...</option>
-                    {LISTA_SETORES.map((setor) => (
-                      <option key={setor} value={setor}>
-                        {setor}
-                      </option>
-                    ))}
-                  </S.SelectIdentificacao>
-                </S.TdSelect>
-                <S.TdSelect width="200px">
-                  <S.SelectIdentificacao
-                    value={os.solicitante}
-                    bgColor={getCorPersonalizada(os.solicitante)}
-                    onChange={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "solicitante",
-                        os.solicitante,
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="">Selecione...</option>
-                    {LISTA_SOLICITANTES.map((nome) => (
-                      <option key={nome} value={nome}>
-                        {nome}
-                      </option>
-                    ))}
-                  </S.SelectIdentificacao>
-                </S.TdSelect>
-                <S.TdSelect width="200px">
-                  <S.SelectIdentificacao
-                    value={os.executor}
-                    bgColor={getCorExecutor(os.executor)}
-                    onChange={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "executor",
-                        os.executor,
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="">Selecione...</option>
-                    {LISTA_EXECUTORES.map((nome) => (
-                      <option key={nome} value={nome}>
-                        {nome}
-                      </option>
-                    ))}
-                  </S.SelectIdentificacao>
-                </S.TdSelect>
-                <S.TdTexto width={"200px"}>
-                  <S.EditableTextarea
-                    defaultValue={os.equipamento}
-                    onBlur={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "equipamento",
-                        os.equipamento,
-                        e.target.value
-                      )
-                    }
-                    onInput={(e) => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = e.target.scrollHeight + "px";
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        e.target.blur();
+      {/* MENU HAMBURGUER (Apenas PC) */}
+      <H.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
+        {menuAberto ? "✕" : "☰"}
+      </H.MenuToggle>
+
+      {/* OVERLAY DO MENU */}
+      <H.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
+
+      {/* SIDEBAR RETRÁTIL */}
+      <H.Sidebar isOpen={menuAberto}>
+        <H.MenuItem
+          active={location.pathname === "/"}
+          onClick={() => handleNavigation("/")}
+        >
+          🗂️ Painel de Acompanhamento
+        </H.MenuItem>
+
+        <H.MenuItem
+          active={location.pathname === "/tabela"}
+          onClick={() => handleNavigation("/tabela")}
+        >
+          📊 Tabela de Ordens de Serviço
+        </H.MenuItem>
+      </H.Sidebar>
+      <S.PaginaContainer>
+        <S.HeaderFixo>
+          <h1>.</h1>
+          <div style={{ color: "#71717a", fontSize: "14px" }}>
+            {ordens.length} Registros encontrados
+          </div>
+        </S.HeaderFixo>
+
+        <S.TabelaWrapper>
+          <S.TabelaStyled>
+            <thead>
+              <S.TrHeader>
+                <S.Th>Nº OS</S.Th>
+                <S.Th>Data Abertura</S.Th>
+                <S.Th>Setor</S.Th>
+                <S.Th>Solicitante</S.Th>
+                <S.Th>Executor</S.Th>
+                <S.Th>Equipamento</S.Th>
+                <S.Th>Descrição</S.Th>
+                <S.Th>Status</S.Th>
+                <S.Th>Prioridade</S.Th>
+                <S.Th>Foto Aber.</S.Th>
+                <S.Th>Fechamento</S.Th>
+                <S.Th>Peças</S.Th>
+                <S.Th>Valor R$</S.Th>
+                <S.Th>Foto Fech.</S.Th>
+                <S.Th>Obs. Técnica</S.Th>
+                <S.Th>Ações</S.Th>
+              </S.TrHeader>
+            </thead>
+            <tbody>
+              {ordens.map((os) => (
+                <tr key={os._id}>
+                  <S.Td style={{ fontWeight: "600", color: "#3b82f6" }}>
+                    #{os.numeroOS}
+                  </S.Td>
+                  <S.Td style={{ color: "#52525b" }}>
+                    {new Date(os.createdAt).toLocaleDateString()}
+                  </S.Td>
+
+                  <S.TdSelect width="220px">
+                    <S.SelectClean
+                      defaultValue={os.setor}
+                      onBlur={(e) =>
+                        handleUpdate(os._id, "setor", e.target.value)
                       }
-                    }}
-                  />
-                </S.TdTexto>
-                <S.TdTexto width="300px">
-                  <S.EditableTextarea
-                    defaultValue={os.descricaoAbertura}
-                    onBlur={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "descricaoAbertura",
-                        os.descricaoAbertura,
-                        e.target.value
-                      )
-                    }
-                    onInput={(e) => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = e.target.scrollHeight + "px";
-                    }}
-                  />
-                </S.TdTexto>
-                <S.TdSelect width="150px">
-                  <S.SelectMonday
-                    value={os.situacao?.trim() || ""}
-                    bgColor={getStatusColor(os.situacao)}
-                    onChange={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "situacao",
-                        os.situacao,
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="EM ABERTO">EM ABERTO</option>
-                    <option value="EM PROCESSO">EM PROCESSO</option>
-                    <option value="CONCLUÍDO">CONCLUÍDO</option>
-                    <option value="CANCELADA">CANCELADA</option>
-                  </S.SelectMonday>
-                </S.TdSelect>
-                <S.TdSelect width="120px">
-                  <S.SelectMonday
-                    value={os.prioridade?.toUpperCase() || "NORMAL"}
-                    bgColor={getPriorityColor(os.prioridade)}
-                    onChange={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "prioridade",
-                        os.prioridade,
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="BAIXA">BAIXA</option>
-                    <option value="NORMAL">NORMAL</option>
-                    <option value="MÉDIA">MÉDIA</option>
-                    <option value="ALTA">ALTA</option>
-                  </S.SelectMonday>
-                </S.TdSelect>
-                <S.Td>
-                  {os.arquivoAbertura ? (
-                    <a
-                      href={`${os.arquivoAbertura}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        color: "#0073ea",
-                        textDecoration: "none",
-                        fontWeight: "bold",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "4px",
-                      }}
                     >
-                      🖼️ Ver Foto
-                    </a>
-                  ) : (
-                    <span style={{ color: "#c5c7d0" }}>-</span>
-                  )}
-                </S.Td>
-                <S.Td>{formatarData(os.dataFechamento)}</S.Td>
-                <S.TdTexto width="250px">
-                  <S.EditableTextarea
-                    defaultValue={os.pecasUtilizadas || ""}
-                    onBlur={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "pecasUtilizadas",
-                        os.pecasUtilizadas,
-                        e.target.value
-                      )
-                    }
-                    onInput={(e) => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = e.target.scrollHeight + "px";
-                    }}
-                  />
-                </S.TdTexto>
-                <S.TdTexto width="120px">
-                  <S.InputValor
-                    type="number"
-                    step="0.01"
-                    defaultValue={os.valorPecas || ""}
-                    placeholder="0,00"
-                    onBlur={(e) => {
-                      const novoValor = parseFloat(e.target.value);
-                      handleUpdateInline(
-                        os._id,
-                        "valorPecas",
-                        os.valorPecas,
-                        novoValor
-                      );
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.target.blur();
-                    }}
-                  />
-                </S.TdTexto>
-                <S.TdTexto width="250px">
-                  <S.EditableTextarea
-                    defaultValue={os.descricaoFechamento || ""}
-                    onBlur={(e) =>
-                      handleUpdateInline(
-                        os._id,
-                        "descricaoFechamento",
-                        os.descricaoFechamento,
-                        e.target.value
-                      )
-                    }
-                    onInput={(e) => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = e.target.scrollHeight + "px";
-                    }}
-                  />
-                </S.TdTexto>
-                <S.Td>
-                  {os.arquivoFechamento ? (
-                    <a
-                      href={os.arquivoFechamento}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        color: "#0073ea",
-                        textDecoration: "none",
-                        fontWeight: "bold",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "4px",
-                      }}
+                      {opcoes?.setores?.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </S.SelectClean>
+                  </S.TdSelect>
+
+                  <S.TdSelect width="160px">
+                    <S.SelectClean
+                      defaultValue={os.solicitante}
+                      onBlur={(e) =>
+                        handleUpdate(os._id, "solicitante", e.target.value)
+                      }
                     >
-                      🖼️ Ver Foto
-                    </a>
-                  ) : (
-                    <span style={{ color: "#c5c7d0" }}>-</span>
-                  )}
-                </S.Td>
-                <S.Td>
-                  <button onClick={() => useDeleteOs(os.numeroOS)}>🗑️</button>
-                </S.Td>
-              </tr>
-            ))}
-          </tbody>
-        </S.TabelaStyled>
-      </S.TabelaWrapper>
-    </S.PaginaContainer>
+                      {opcoes?.solicitantes?.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </S.SelectClean>
+                  </S.TdSelect>
+
+                  <S.TdSelect width="160px">
+                    <S.SelectClean
+                      defaultValue={os.executor}
+                      onBlur={(e) =>
+                        handleUpdate(os._id, "executor", e.target.value)
+                      }
+                    >
+                      <option value="">Não Atribuído</option>
+                      {opcoes?.executores?.map((e) => (
+                        <option key={e} value={e}>
+                          {e}
+                        </option>
+                      ))}
+                    </S.SelectClean>
+                  </S.TdSelect>
+
+                  <S.TdTexto width="180px">
+                    <S.EditableTextarea
+                      defaultValue={os.equipamento}
+                      onBlur={(e) =>
+                        handleUpdate(os._id, "equipamento", e.target.value)
+                      }
+                    />
+                  </S.TdTexto>
+
+                  <S.TdTexto width="480px">
+                    <S.EditableTextarea
+                      defaultValue={os.descricaoAbertura}
+                      onBlur={(e) =>
+                        handleUpdate(
+                          os._id,
+                          "descricaoAbertura",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </S.TdTexto>
+
+                  <S.TdSelect width="140px">
+                    <S.SelectStatus
+                      defaultValue={os.situacao}
+                      bgColor={getStatusColor(os.situacao)}
+                      onChange={(e) =>
+                        handleUpdate(os._id, "situacao", e.target.value)
+                      }
+                    >
+                      <option value="EM ABERTO">EM ABERTO</option>
+                      <option value="EM PROCESSO">EM PROCESSO</option>
+                      <option value="CONCLUÍDO">CONCLUÍDO</option>
+                    </S.SelectStatus>
+                  </S.TdSelect>
+
+                  <S.TdSelect width="120px">
+                    <S.SelectClean
+                      defaultValue={os.prioridade}
+                      onBlur={(e) =>
+                        handleUpdate(os._id, "prioridade", e.target.value)
+                      }
+                    >
+                      <option value="Normal (Sequência de execução)">
+                        Normal
+                      </option>
+                      <option value="Alta (No decorrer do dia)">Alta</option>
+                      <option value="Emergencia (Atendimento Imediato)">
+                        Emergência
+                      </option>
+                    </S.SelectClean>
+                  </S.TdSelect>
+
+                  <S.Td>
+                    {os.arquivoAbertura ? (
+                      <a href={os.arquivoAbertura} target="_blank">
+                        🖼️
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </S.Td>
+                  <S.Td>
+                    {os.dataFechamento
+                      ? new Date(os.dataFechamento).toLocaleDateString()
+                      : "-"}
+                  </S.Td>
+
+                  <S.TdTexto width="200px">
+                    <S.EditableTextarea
+                      defaultValue={os.pecasUtilizadas}
+                      onBlur={(e) =>
+                        handleUpdate(os._id, "pecasUtilizadas", e.target.value)
+                      }
+                    />
+                  </S.TdTexto>
+
+                  <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
+                  <S.Td>
+                    {os.arquivoFechamento ? (
+                      <a href={os.arquivoFechamento} target="_blank">
+                        🖼️
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </S.Td>
+
+                  <S.TdTexto width="250px">
+                    <S.EditableTextarea
+                      defaultValue={os.descricaoFechamento}
+                      onBlur={(e) =>
+                        handleUpdate(
+                          os._id,
+                          "descricaoFechamento",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </S.TdTexto>
+
+                  <S.Td>
+                    <S.ActionButton onClick={() => useDeleteOs(os._id)}>
+                      ❌
+                    </S.ActionButton>
+                  </S.Td>
+                </tr>
+              ))}
+            </tbody>
+          </S.TabelaStyled>
+        </S.TabelaWrapper>
+      </S.PaginaContainer>
+    </div>
   );
 };
 

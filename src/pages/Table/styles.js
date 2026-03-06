@@ -1,243 +1,180 @@
 import styled from "styled-components";
 
 export const PaginaContainer = styled.div`
-  background-color: #f5f6f8;
+  background-color: #09090b;
   height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-  font-family: "Roboto", sans-serif;
+  font-family: "Inter", sans-serif;
+  color: #fafafa;
   overflow: hidden;
 `;
 
 export const HeaderFixo = styled.header`
-  background: white;
-  padding: 16px 24px;
-  border-bottom: 1px solid #e6e9ef;
-  flex-shrink: 0;
-  z-index: 100;
-`;
-export const TdTexto = styled.td`
-  width: ${(props) => props.width || "150px"};
-  height: 8vh;
-  border: 1px solid #e6e9ef;
-  vertical-align: top;
-  position: relative;
-  padding: 0 !important;
-`;
-export const TdSelect = styled.td`
-  padding: 0 !important;
-  border: 1px solid #e6e9ef;
-  width: ${(props) => props.width || "140px"};
-  height: 40px;
-`;
+  padding: 24px 32px;
+  border-bottom: 1px solid #1f1f23;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
-export const SelectMonday = styled.select`
-  width: 100%;
-  height: 100%;
-  border: none;
-  color: white;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  appearance: none;
-  transition: background-color 0.2s;
-
-  background-color: ${(props) => props.bgColor || "#c4c4c4"};
-
-  &:focus {
-    outline: none;
+  p {
+    
   }
-
-  option {
-    background-color: #fff;
-    color: #333;
-    font-weight: normal;
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
   }
 `;
-export const InputValor = styled.input`
-  width: 100%;
-  height: 100%;
-  min-height: 50px;
-  border: none;
-  background: transparent;
-  padding: 10px;
-  resize: none;
-  overflow: hidden;
-  font-family: inherit;
-  font-size: 14px;
-  color: #333;
-  outline: none;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  display: block;
-  box-sizing: border-box;
-  text-align: center;
 
-  &:hover {
-    background: #f5f6f8;
-  }
-
-  &:focus {
-    background: #fff;
-    box-shadow: inset 0 0 0 2px #0073ea;
-  }
-
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  &:hover {
-    background: #f5f6f8;
-  }
-
-  &:focus {
-    background: #fff;
-    border: 1px solid #0073ea;
-  }
-`;
-export const SelectIdentificacao = styled.select`
-  width: 100%;
-  height: 100%;
-  border: none;
-  background-color: ${(props) => props.bgColor || "#f1f3f5"};
-  color: #333;
-  font-size: 13px;
-  text-align-last: center;
-  cursor: pointer;
-  appearance: none;
-  outline: none;
-
-  &:hover {
-    background-color: #e9ecef;
-  }
-
-  &:focus {
-    background-color: #fff;
-    box-shadow: inset 0 0 0 2px #0073ea;
-  }
-
-  option {
-    background-color: #fff;
-    color: #333;
-  }
-`;
-export const EditableTextarea = styled.textarea`
-  width: 92%;
-  min-height: 50px;
-  max-height: 150px;
-  resize: none;
-  overflow-y: auto;
-  line-height: 1.4;
-  padding: 8px;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: 13px;
-  transition: background 0.2s;
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 10px;
-  }
-
-  &:focus {
-    background: #fff;
-    outline: 1px solid #0073ea;
-  }
-`;
 export const TabelaWrapper = styled.div`
   flex-grow: 1;
   overflow: auto;
-  padding: 0 40px 40px 40px;
+  padding: 0 10px 10px 10px;
 
+  /* Scrollbar Minimalista */
   &::-webkit-scrollbar {
-    width: 20px;
-    height: 20px;
+    width: 10px;
+    height: 10px;
   }
   &::-webkit-scrollbar-thumb {
-    background: #c5c7d0;
-    border-radius: 0px;
-    &:hover {
-      cursor: pointer;
-    }
-  }
-  &::-webkit-scrollbar-track {
-    background: #f5f6ff;
+    background: #27272a;
+    border-radius: 10px;
   }
 `;
 
 export const TabelaStyled = styled.table`
   width: 100%;
-  min-width: 1800px;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: white;
+  min-width: 2400px;
+  border-collapse: collapse;
+  background: #09090b;
 `;
 
 export const Th = styled.th`
-  padding: 14px 12px;
+  padding: 12px 16px;
   text-align: center;
-  color: #323338;
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  background: white;
+  color: #71717a; /* Cinza suave */
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid #1f1f23;
+  background: #09090b;
   position: sticky;
   top: 0;
-  z-index: 20;
-  border-right: 1px solid #e6e9ef;
-  box-shadow: inset 0 -2px 0 0 #c5c7d0;
+  z-index: 10;
 `;
-export const TrHeader = styled.tr`
-  box-shadow: none;
-`;
+
+export const TrHeader = styled.tr``;
 
 export const Td = styled.td`
-  padding: 5px;
-  border-bottom: 1px solid #e6e9ef;
-  border-right: 1px solid #e6e9ef;
+  padding: 12px 16px;
+  border-bottom: 1px solid #121214;
   font-size: 13px;
-  text-align: center;
+  color: #e4e4e7;
+  vertical-align: middle;
+  height: 60px;
 `;
 
-export const CelulaStatus = styled.div`
-  background-color: ${(props) => props.color || "#ccc"};
-  color: white;
-  font-weight: bold;
+/* Célula de Input/Select */
+export const TdSelect = styled.td`
+  padding: 4px 8px;
+  border-bottom: 1px solid #121214;
+  width: ${(props) => props.width || "auto"};
+  margin-right: 5px;
+`;
+
+export const TdTexto = styled(TdSelect)``;
+
+/* O "Badge/Pill" que você viu na imagem */
+export const SelectStatus = styled.select`
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 11px;
-  padding: 8px;
-  text-align: center;
+  font-weight: 600;
   text-transform: uppercase;
-  border-radius: 4px;
-`;
-
-export const BotaoNovo = styled.button`
-  background-color: #0073ea;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
   cursor: pointer;
+  appearance: none;
+  text-align: center;
+  background-color: ${(props) => props.bgColor || "#27272a"};
+  color: #fff;
+  transition: all 0.2s;
+
   &:hover {
-    background-color: #0060c5;
+    filter: brightness(1.2);
   }
 `;
-export const TdDescricao = styled(Td)`
-  white-space: normal;
-  word-break: break-word;
 
+/* Select Transparente para nomes (estilo Linear) */
+export const SelectClean = styled.select`
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #e4e4e7;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #27272a;
+    background: #121214;
+  }
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+`;
+
+export const EditableTextarea = styled.textarea`
+  width: 100%;
+  min-height: 40px; /* Altura mínima elegante */
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
   text-align: center;
-  min-width: 300px;
-  max-width: 500px;
-  line-height: 1.4;
-  padding: 12px;
+  padding: 8px;
+  resize: none; /* Impede o usuário de puxar o cantinho */
+  overflow: hidden; /* Esconde o scroll feio */
+  transition: all 0.2s ease;
+  padding-top: 20px;
+  padding-bottom: 5px;
+  box-sizing: border-box;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+  }
+
+  &:focus {
+    outline: none;
+    background: #000;
+    box-shadow: inset 0 0 0 1px #27272a;
+    border-radius: 4px;
+    overflow-y: auto;
+  }
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 10px;
+  }
+`;
+
+export const ActionButton = styled.button`
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  &:hover {
+    background: #1f1f23;
+    color: #ef4444;
+  }
 `;

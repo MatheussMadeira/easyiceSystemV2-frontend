@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useOS } from "../../hooks/useOS";
 import ModalBase from "../../components/Modal/ModalBase";
 import ModalExecutor from "../../components/ModalExecutor/ModalExecutor";
@@ -8,6 +8,7 @@ import Swal from "sweetalert2";
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // 1. Pegamos os dados e funções do novo hook useOS (que agora usa React Query)
   const {
@@ -29,6 +30,8 @@ export default function Home() {
   const [dadosModal, setDadosModal] = useState({});
   const [osAtual, setOsAtual] = useState(null);
   const [numeroOSParaBuscar, setNumeroOSParaBuscar] = useState("");
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const Toast = Swal.mixin({
     toast: true,
@@ -46,6 +49,17 @@ export default function Home() {
   });
 
   // --- FUNÇÕES DE AÇÃO ---
+  const handleNavigation = (path) => {
+    if (location.pathname === path) {
+      setMenuAberto(false);
+      return;
+    }
+
+    setIsNavigating(true);
+    setTimeout(() => {
+      navigate(path);
+    }, 500);
+  };
 
   const handleCriar = async () => {
     const obrigatorios = fieldsAbertura
@@ -53,7 +67,7 @@ export default function Home() {
       .map((f) => f.name);
     const faltantes = obrigatorios.filter(
       (campo) =>
-        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
+        !dadosModal[campo] || dadosModal[campo].toString().trim() === "",
     );
 
     if (faltantes.length > 0 || !dadosModal.arquivoAbertura) {
@@ -69,7 +83,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key])
+        formData.append(key, dadosModal[key]),
       );
 
       // 2. Chamada via React Query (já limpa o cache e atualiza a lista no sucesso)
@@ -91,7 +105,7 @@ export default function Home() {
         if (result.isConfirmed) {
           window.open(
             gerarMensagemWhatsApp(novaOSDoBanco, "abertura"),
-            "_blank"
+            "_blank",
           );
         }
       });
@@ -130,7 +144,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key])
+        formData.append(key, dadosModal[key]),
       );
 
       // 3. Chamada via React Query
@@ -157,7 +171,7 @@ export default function Home() {
     const filtradas = ordens.filter(
       (os) =>
         (tipo === "Executor" ? os.executor : os.solicitante) === nome &&
-        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO")
+        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO"),
     );
     setOsFiltradas(filtradas);
     setExecutorNome(nome);
@@ -181,7 +195,7 @@ export default function Home() {
   const osParaRanking = ordens.filter(
     (os) =>
       (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO") &&
-      os.executor
+      os.executor,
   );
 
   const contagem = (tipo) => {
@@ -230,17 +244,17 @@ export default function Home() {
       "José",
       "NATANAEL",
       "FREDERICO MADEIRA",
-    ]
+    ],
   );
   const executoresFinais = filtrar(
     opcoes.executores,
     ["José Rodrigues", "Gabriel Camara"],
-    ["josé", "José", "Não Atribuído"]
+    ["josé", "José", "Não Atribuído"],
   );
   const setoresFinais = filtrar(
     opcoes.setores,
     ["FRUTA CONGELADA", "ROTULAGEM"],
-    ["ACAI", "SEGURANÇA", "FRUTA CONG", "ROTULADORA"]
+    ["ACAI", "SEGURANÇA", "FRUTA CONG", "ROTULADORA"],
   );
   const prioridadesFinais = filtrar(
     opcoes.prioridades,
@@ -249,7 +263,7 @@ export default function Home() {
       "Alta (No decorrer do dia)",
       "Normal (Sequência de execução)",
     ],
-    ["Baixa", "Média", "NORMAL", "Alta", "Normal"]
+    ["Baixa", "Média", "NORMAL", "Alta", "Normal"],
   );
 
   const fieldsAbertura = [
@@ -337,7 +351,42 @@ export default function Home() {
   };
 
   return (
-    <div style={{ backgroundColor: "#000", overflowX: "hidden" }}>
+    <div
+      style={{
+        backgroundColor: "#09090b",
+        minHeight: "100vh",
+        overflowX: "hidden",
+      }}
+    >
+      {/* 1. TELA DE TRANSIÇÃO (Igual à de abertura, mas para navegação) */}
+      {(isNavigating || loading) && (
+        <S.TransitionOverlay>
+          <S.Spinner />
+          <h2>Sincronizando base de dados...</h2>
+        </S.TransitionOverlay>
+      )}
+
+      <S.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
+        {menuAberto ? "✕" : "☰"}
+      </S.MenuToggle>
+
+      <S.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
+
+      <S.Sidebar isOpen={menuAberto}>
+        <S.MenuItem
+          active={location.pathname === "/"}
+          onClick={() => handleNavigation("/")}
+        >
+          🗂️ Painel de Acompanhamento
+        </S.MenuItem>
+
+        <S.MenuItem
+          active={location.pathname === "/tabela"}
+          onClick={() => handleNavigation("/tabela")}
+        >
+          📊 Tabela de Ordens de Serviço
+        </S.MenuItem>
+      </S.Sidebar>
       <S.HomeContainer>
         {loading && (
           <div
@@ -370,23 +419,12 @@ export default function Home() {
 
         <S.Card>
           <h3>EasyIce - Fechar OS Existente</h3>
-          <h3 style={{ color: "red" }}>
-            A OS DEVE SER FINALIZADA PELO SOLICITANTE
-          </h3>
           <p>NÚMERO DA OS:</p>
           <input
             type="number"
             placeholder="Ex: 1020"
             value={numeroOSParaBuscar}
             onChange={(e) => setNumeroOSParaBuscar(e.target.value)}
-            style={{
-              padding: "10px",
-              fontSize: "1.5rem",
-              width: "80%",
-              textAlign: "center",
-              borderRadius: "8px",
-              marginBottom: "10px",
-            }}
           />
           <S.BotaoCard onClick={prepararFechamento}>
             Localizar e Finalizar
@@ -407,80 +445,38 @@ export default function Home() {
           },
         ].map((rk) => (
           <S.Card key={rk.title}>
-            <h3>{rk.title}</h3>
-            <div
-              style={{
-                display: "flex",
-                gap: "15px",
-                marginBottom: "10px",
-                fontSize: "0.85rem",
-                justifyContent: "center",
-                borderBottom: "1px solid #333",
-                paddingBottom: "8px",
-              }}
-            >
-              <span style={{ color: "#656363" }}>
-                <b style={{ color: "#c82800" }}>A</b> : Em aberto
-              </span>
-              <span style={{ color: "#656363" }}>
-                <b style={{ color: "#00aeff" }}>P</b> : Em processo
-              </span>
+            <div>
+              <h3>{rk.title}</h3>
+              <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                <span style={{ color: "#71717a", fontSize: "15  px" }}>
+                  <b style={{ color: "#ef4444" }}>●</b> Aberto
+                </span>
+                <span style={{ color: "#71717a", fontSize: "15px" }}>
+                  <b style={{ color: "#3b82f6" }}>●</b> Processo
+                </span>
+              </div>
             </div>
             {rk.data.length > 0 ? (
               <S.RankingWrapper>
                 {rk.data.map((item, idx) => (
-                  <div
+                  <S.RankingItem
                     key={item.nome}
                     onClick={() => abrirDetalhes(item.nome, rk.type)}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      cursor: "pointer",
-                      padding: "10px 0",
-                      borderBottom:
-                        idx !== rk.data.length - 1 ? "1px solid #eee" : "none",
-                    }}
                   >
-                    <span
-                      style={{
-                        fontWeight: "600",
-                        fontSize: "1.2rem",
-                        color: "#333",
-                      }}
-                    >
+                    <span className="nome">
                       {idx + 1}º {item.nome}
                     </span>
-                    <div style={{ display: "flex", gap: "5px" }}>
-                      <span
-                        style={{
-                          backgroundColor: "#c82800",
-                          color: "white",
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {item.aberto} A
-                      </span>
-                      <span
-                        style={{
-                          backgroundColor: "#00aeff",
-                          color: "white",
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {item.processo} P
-                      </span>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <S.Badge color="#ef4444">{item.aberto}</S.Badge>
+                      <S.Badge color="#3b82f6">{item.processo}</S.Badge>
                     </div>
-                  </div>
+                  </S.RankingItem>
                 ))}
               </S.RankingWrapper>
             ) : (
-              <S.RankingVazio>Ninguém com OS ativa</S.RankingVazio>
+              <S.RankingVazio>Nenhuma atividade recente</S.RankingVazio>
             )}
+            <div style={{ height: "10px" }}></div> {/* Espaçador inferior */}
           </S.Card>
         ))}
 
