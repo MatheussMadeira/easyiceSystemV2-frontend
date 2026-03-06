@@ -93,7 +93,7 @@ const TabelaOS = () => {
       </H.Sidebar>
       <S.PaginaContainer>
         <S.HeaderFixo>
-          <h1>.</h1>
+          <h1 style={{ color: "transparent" }}>.</h1>
           <div style={{ color: "#71717a", fontSize: "14px" }}>
             {ordens.length} Registros encontrados
           </div>
