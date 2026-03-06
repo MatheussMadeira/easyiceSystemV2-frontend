@@ -197,22 +197,44 @@ export default function Home() {
 
   const fieldsFechamento = [
     {
+      name: "situacao",
+      label: "O que deseja fazer agora?",
+      type: "select",
+      options: [
+        { label: "Colocar em Processo (Andamento)", value: "EM PROCESSO" },
+        { label: "Finalizar OS (Concluir)", value: "CONCLUÍDO" },
+      ],
+    },
+    {
       name: "executor",
-      label: "Técnico Executor",
+      label: "Técnico Responsável",
       type: "select",
       options: executoresFinais.map((e) => ({ label: e, value: e })),
     },
-    { name: "pecasUtilizadas", label: "Peças Utilizadas", type: "text" },
-    {
-      name: "descricaoFechamento",
-      label: "Relatório Técnico (O que foi feito?)",
-      type: "textarea",
-    },
-    {
-      name: "arquivoFechamento",
-      label: "Foto do Serviço Finalizado",
-      type: "file",
-    },
+    ...(dadosModal.situacao === "EM PROCESSO"
+      ? [
+          {
+            name: "descricaoProcesso",
+            label: "O que está sendo feito? (Descrição do Andamento)",
+            type: "textarea",
+          },
+        ]
+      : []),
+    ...(dadosModal.situacao === "CONCLUÍDO"
+      ? [
+          { name: "pecasUtilizadas", label: "Peças Utilizadas", type: "text" },
+          {
+            name: "descricaoFechamento",
+            label: "Relatório Técnico Final",
+            type: "textarea",
+          },
+          {
+            name: "arquivoFechamento",
+            label: "Foto do Serviço Finalizado",
+            type: "file",
+          },
+        ]
+      : []),
   ];
 
   const handleCriar = async () => {
@@ -281,69 +303,56 @@ export default function Home() {
     }
   };
 
-  const handleFechar = async () => {
-    const obrigatorios = fieldsFechamento
-      .filter((f) => f.type !== "file")
-      .map((f) => f.name);
+  const handleAtualizarStatus = async () => {
+    const situacao = dadosModal.situacao;
 
-    const faltantes = obrigatorios.filter(
-      (campo) =>
-        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
-    );
-
-    const faltaArquivo = !dadosModal.arquivoFechamento;
-
-    if (faltantes.length > 0) {
-      Toast.fire({
-        icon: "warning",
-        title: "Preencha todos os campos do relatório!",
-      });
-      return;
-    } else if (faltaArquivo) {
-      Toast.fire({
-        icon: "warning",
-        title: "A foto do serviço é obrigatória!",
-      });
+    if (situacao === "EM PROCESSO") {
+      if (!dadosModal.descricaoProcesso || !dadosModal.executor) {
+        Toast.fire({
+          icon: "warning",
+          title: "Informe o executor e a descrição do andamento!",
+        });
+        return;
+      }
+    } else if (situacao === "CONCLUÍDO") {
+      if (
+        !dadosModal.descricaoFechamento ||
+        !dadosModal.arquivoFechamento ||
+        !dadosModal.executor
+      ) {
+        Toast.fire({
+          icon: "warning",
+          title: "Para finalizar, preencha o relatório e a foto!",
+        });
+        return;
+      }
+    } else {
+      Toast.fire({ icon: "warning", title: "Selecione o que deseja fazer!" });
       return;
     }
 
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) => {
-        if (key !== "arquivoFechamento") {
-          formData.append(key, dadosModal[key]);
-        }
+        formData.append(key, dadosModal[key]);
       });
-
-      if (dadosModal.arquivoFechamento) {
-        formData.append("arquivoFechamento", dadosModal.arquivoFechamento);
-      }
 
       const osAtualizada = await useUpdateOs(osAtual._id, formData);
 
       setModalFechamentoAberto(false);
       setDadosModal({});
-      const numeroFinalizado = numeroOSParaBuscar;
       setNumeroOSParaBuscar("");
       useGetOs();
 
-      const link = gerarMensagemWhatsApp(osAtualizada, "fechamento");
-
       Swal.fire({
-        title: "OS Fechada com Sucesso! 🚀",
-        text: `A Ordem de Serviço #${numeroFinalizado} foi fechada no sistema.`,
+        title: "Atualizado!",
+        text: `A OS foi movida para: ${situacao}`,
         icon: "success",
-        showCancelButton: true,
         confirmButtonColor: "#25D366",
-        cancelButtonColor: "#3085d6",
-        confirmButtonText: "Enviar para WhatsApp",
-      }).then((result) => {
-        if (result.isConfirmed) {
-          window.open(link, "_blank");
-        }
+        confirmButtonText: "OK",
       });
     } catch (err) {
-      Swal.fire("Erro", "Não foi possível criar a OS: " + err.message, "error");
+      Swal.fire("Erro", err.message, "error");
     }
   };
 
@@ -373,23 +382,35 @@ export default function Home() {
 
   const osParaRanking = ordens.filter(
     (os) =>
-      (os.situacao === "EM ABERTO" || os.situacao === "EM ANDAMENTO") &&
+      (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO") &&
       os.executor
   );
-  const contagemPorSolicitante = osParaRanking.reduce((acc, os) => {
-    acc[os.solicitante] = (acc[os.solicitante] || 0) + 1;
+  const gerarContagemStatus = (acc, nome, situacao) => {
+    if (!acc[nome]) {
+      acc[nome] = { aberto: 0, processo: 0, total: 0 };
+    }
+    if (situacao === "EM ABERTO") acc[nome].aberto++;
+    if (situacao === "EM PROCESSO") acc[nome].processo++;
+    acc[nome].total = acc[nome].aberto + acc[nome].processo;
     return acc;
-  }, {});
+  };
 
-  const contagemPorExecutor = osParaRanking.reduce((acc, os) => {
-    acc[os.executor] = (acc[os.executor] || 0) + 1;
-    return acc;
-  }, {});
+  const contagemPorSolicitante = osParaRanking.reduce(
+    (acc, os) => gerarContagemStatus(acc, os.solicitante, os.situacao),
+    {}
+  );
+
+  const contagemPorExecutor = osParaRanking.reduce(
+    (acc, os) => gerarContagemStatus(acc, os.executor, os.situacao),
+    {}
+  );
+
   const rankingDataSolicitante = Object.entries(contagemPorSolicitante)
-    .map(([nome, total]) => ({ nome, total }))
+    .map(([nome, stats]) => ({ nome, ...stats }))
     .sort((a, b) => b.total - a.total);
+
   const rankingDataExecutor = Object.entries(contagemPorExecutor)
-    .map(([nome, total]) => ({ nome, total }))
+    .map(([nome, stats]) => ({ nome, ...stats }))
     .sort((a, b) => b.total - a.total);
 
   const gerarMensagemWhatsApp = (os, tipo = "abertura") => {
@@ -420,9 +441,6 @@ export default function Home() {
   };
   return (
     <div style={{ backgroundColor: "#000", overflowX: "hidden" }}>
-      <S.Header>
-        <S.BotaoCard>Tabela das Ordens de serviço</S.BotaoCard>
-      </S.Header>
       <S.HomeContainer>
         {loading && (
           <div
@@ -457,7 +475,9 @@ export default function Home() {
         {/* CARD FECHAMENTO */}
         <S.Card>
           <h3>EasyIce - Fechar OS Existente</h3>
-          <h3>OBS: A OS DEVE SER FINALIZADA PELO SOLICITANTE</h3>
+          <h3 style={{ color: "red" }}>
+            OBS: A OS DEVE SER FINALIZADA PELO SOLICITANTE
+          </h3>
           <p>DIGITE O NÚMERO DA OS PARA FINALIZAR:</p>
           <input
             type="number"
@@ -480,8 +500,7 @@ export default function Home() {
         </S.Card>
         <S.Card>
           <h3>Ranking Solicitantes</h3>
-          <p>Número de OS abertas ou em processo</p>
-          <p>Clique no nome para ver as OS associadas ao solicitante</p>
+          <p>Status das OS ativas</p>
           {rankingDataSolicitante.length > 0 ? (
             <S.RankingWrapper>
               {rankingDataSolicitante.map((item, index) => (
@@ -491,53 +510,73 @@ export default function Home() {
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
+                    alignItems: "center",
                     width: "100%",
                     cursor: "pointer",
-                    padding: "8px 0",
+                    padding: "10px 0",
                     borderBottom:
                       index !== rankingDataSolicitante.length - 1
                         ? "1px solid #eee"
                         : "none",
                   }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f0f7ff")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
                 >
                   <span
                     style={{
                       fontWeight: "600",
-                      fontSize: "1.3rem",
+                      fontSize: "1.2rem",
                       color: "#333",
                     }}
                   >
                     {index + 1}º {item.nome}
                   </span>
-                  <span
+
+                  <div
                     style={{
-                      backgroundColor: item.total > 5 ? "#ff4d4f" : "#00c875",
-                      color: "white",
-                      padding: "2px 10px",
-                      borderRadius: "12px",
-                      fontSize: "1.3rem",
-                      fontWeight: "bold",
+                      display: "flex",
+                      gap: "5px",
                     }}
                   >
-                    {item.total} OS
-                  </span>
+                    {/* Badge de Aberto */}
+                    <span
+                      style={{
+                        backgroundColor: "#c82800",
+                        color: "white",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        fontSize: "1.1rem",
+                        fontWeight: "bold",
+                      }}
+                      title="Abertas"
+                    >
+                      {item.aberto} A
+                    </span>
+                    {/* Badge de Processo */}
+                    <span
+                      style={{
+                        backgroundColor: "#00aeff",
+                        color: "white",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        fontSize: "1.1rem",
+                        fontWeight: "bold",
+                      }}
+                      title="Em Processo"
+                    >
+                      {item.processo} P
+                    </span>
+                  </div>
                 </div>
               ))}
             </S.RankingWrapper>
           ) : (
-            <S.RankingVazio>Ninguém com OS aberta no momento</S.RankingVazio>
+            <S.RankingVazio>Ninguém com OS ativa</S.RankingVazio>
           )}
         </S.Card>
+
+        {/* RANKING EXECUTORES */}
         <S.Card>
           <h3>Ranking Executores</h3>
-          <p>Número de OS abertas ou em processo</p>
-          <p>Clique no nome para ver as pendências do executor.</p>
+          <p>Status das OS ativas</p>
           {rankingDataExecutor.length > 0 ? (
             <S.RankingWrapper>
               {rankingDataExecutor.map((item, index) => (
@@ -547,47 +586,57 @@ export default function Home() {
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
+                    alignItems: "center",
                     width: "100%",
                     cursor: "pointer",
-                    padding: "8px 0",
+                    padding: "10px 0",
                     borderBottom:
                       index !== rankingDataExecutor.length - 1
                         ? "1px solid #eee"
                         : "none",
                   }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f0f7ff")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
                 >
                   <span
                     style={{
                       fontWeight: "600",
-                      fontSize: "1.3rem",
+                      fontSize: "1.2rem",
                       color: "#333",
                     }}
                   >
                     {index + 1}º {item.nome}
                   </span>
-                  <span
-                    style={{
-                      backgroundColor: item.total > 5 ? "#ff4d4f" : "#00c875",
-                      color: "white",
-                      padding: "2px 10px",
-                      borderRadius: "12px",
-                      fontSize: "1.3rem",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {item.total} OS
-                  </span>
+
+                  <div style={{ display: "flex", gap: "5px" }}>
+                    <span
+                      style={{
+                        backgroundColor: "#c82800",
+                        color: "white",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        fontSize: "1.1rem",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {item.aberto} A
+                    </span>
+                    <span
+                      style={{
+                        backgroundColor: "#00aeff",
+                        color: "white",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        fontSize: "1.1rem",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {item.processo} P
+                    </span>
+                  </div>
                 </div>
               ))}
             </S.RankingWrapper>
           ) : (
-            <S.RankingVazio>Ninguém com OS aberta no momento</S.RankingVazio>
+            <S.RankingVazio>Ninguém com OS ativa</S.RankingVazio>
           )}
         </S.Card>
 
@@ -604,7 +653,7 @@ export default function Home() {
         <ModalBase
           isOpen={modalFechamentoAberto}
           onClose={() => setModalFechamentoAberto(false)}
-          title={`Finalizar OS #${osAtual?.numeroOS}`}
+          title={`Atualizar OS #${osAtual?.numeroOS}`}
           subtitle={
             osAtual
               ? `Solicitante: ${osAtual.solicitante} | Setor: ${osAtual.setor}`
@@ -613,7 +662,7 @@ export default function Home() {
           fields={fieldsFechamento}
           data={dadosModal}
           setData={setDadosModal}
-          onSubmit={handleFechar}
+          onSubmit={handleAtualizarStatus}
         />
         <ModalExecutor
           isOpen={modalExecutorAberto}

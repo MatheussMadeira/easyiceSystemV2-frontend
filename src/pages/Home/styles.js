@@ -11,14 +11,11 @@ export const HomeContainer = styled.div`
   justify-content: center;
   gap: 30px;
   width: 100vw;
-  min-height: 95vh;
+  min-height: 100vh;
   background-color: #000;
   box-sizing: border-box;
   font-family: "Roboto", sans-serif;
   overflow-y: visible;
-  @media (max-width: 1500px) {
-    min-height: 100vh;
-  }
 `;
 
 export const Card = styled.div`
