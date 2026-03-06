@@ -66,7 +66,7 @@ export const CardContent = styled.div`
       color: #666;
     }
     p {
-      white-space: normal; /* Aqui permitimos quebra de linha para a descrição */
+      white-space: normal; 
       font-size: 0.9rem;
       color: #333;
       margin-top: 4px;

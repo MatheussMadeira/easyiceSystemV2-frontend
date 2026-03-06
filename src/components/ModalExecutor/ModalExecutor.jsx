@@ -30,10 +30,51 @@ const ModalExecutor = ({ isOpen, onClose, title, data, status }) => {
                       <strong>Setor:</strong> {os.setor}
                     </p>
                     <div className="descricao">
-                      <strong>Descrição:</strong>
-                      <p>
-                        {os.descricaoAbertura || "Sem descrição informada."}
-                      </p>
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          padding: "12px",
+                          borderRadius: "4px",
+                          borderLeft: "4px solid #2196f3",
+                        }}
+                      >
+                        <p
+                          style={{
+                            marginBottom:
+                              os.situacao === "EM PROCESSO" ? "10px" : "0",
+                          }}
+                        >
+                          <strong style={{ color: "#1976d2" }}>
+                            📝 Problema Original (Abertura):
+                          </strong>{" "}
+                          <p style={{ marginTop: "4px", marginLeft: "3px" }}>
+                            • {os.descricaoAbertura}
+                          </p>
+                        </p>
+                        {os.situacao === "EM PROCESSO" &&
+                          os.descricaoProcesso && (
+                            <hr
+                              style={{
+                                border: "0",
+                                borderTop: "1px solid #bbdefb",
+                                margin: "8px 0",
+                              }}
+                            />
+                          )}
+                        {os.situacao === "EM PROCESSO" &&
+                          os.descricaoProcesso && (
+                            <>
+                              <strong style={{ color: "#1976d2" }}>
+                                🛠️ Andamento atual:
+                              </strong>
+                              <p
+                                style={{ marginTop: "4px", marginLeft: "3px" }}
+                              >
+                                • {os.descricaoProcesso}
+                              </p>
+                            </>
+                          )}
+                      </div>
                     </div>
                   </S.CardContent>
                 </S.OSCard>
