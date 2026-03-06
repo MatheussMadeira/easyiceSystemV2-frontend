@@ -339,17 +339,14 @@ const TabelaOS = () => {
                       )
                     }
                   >
-                    {/* O value deve ser IDÊNTICO ao que está salvo no seu MongoDB */}
                     <option value="EM ABERTO">EM ABERTO</option>
                     <option value="EM PROCESSO">EM PROCESSO</option>
                     <option value="CONCLUÍDO">CONCLUÍDO</option>
                     <option value="CANCELADA">CANCELADA</option>
                   </S.SelectMonday>
                 </S.TdSelect>
-                {/* --- PRIORIDADE --- */}
                 <S.TdSelect width="120px">
                   <S.SelectMonday
-                    // Garante que o valor venha limpo e em caixa alta para bater com as options
                     value={os.prioridade?.toUpperCase() || "NORMAL"}
                     bgColor={getPriorityColor(os.prioridade)}
                     onChange={(e) =>
@@ -447,7 +444,7 @@ const TabelaOS = () => {
                 <S.Td>
                   {os.arquivoFechamento ? (
                     <a
-                      href={`${API_URL}/uploads/${os.arquivoFechamento}`}
+                      href={os.arquivoFechamento}
                       target="_blank"
                       rel="noreferrer"
                       style={{
