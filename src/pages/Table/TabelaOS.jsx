@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { useOS } from "../../hooks/useOS";
 import * as S from "./styles";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../services/api";
-import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import * as H from "../../components/MenuHamburguer/menu";
+import SeletorGrade from "../../components/PopoverTable/PopoverTable";
 
 const TabelaOS = () => {
   const { useDeleteOs, useUpdateInline } = useOS();
@@ -13,6 +13,7 @@ const TabelaOS = () => {
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [popoverAberto, setPopoverAberto] = useState(null);
 
   const { data: ordens = [], isLoading } = useQuery({
     queryKey: ["ordens"],
@@ -39,19 +40,55 @@ const TabelaOS = () => {
     }
     setIsNavigating(true);
     setMenuAberto(false);
-
-    setTimeout(() => {
-      navigate(path);
-    }, 500);
+    setTimeout(() => navigate(path), 500);
   };
-  const getStatusColor = (s) => {
-    const cores = {
-      CONCLUÍDO: "#10b981",
-      "EM ABERTO": "#f59e0b",
-      "EM PROCESSO": "#3b82f6",
-      CANCELADA: "#ef4444",
+
+  const getStatusStyles = (status) => {
+    const configs = {
+      CONCLUÍDO: {
+        bg: "rgba(16, 185, 129, 0.15)",
+        border: "rgba(16, 185, 129, 0.3)",
+        text: "#10b981",
+      },
+      "EM PROCESSO": {
+        bg: "rgba(59, 130, 246, 0.15)",
+        border: "rgba(59, 130, 246, 0.3)",
+        text: "#3b82f6",
+      },
+      "EM ABERTO": {
+        bg: "rgba(245, 158, 11, 0.15)",
+        border: "rgba(245, 158, 11, 0.3)",
+        text: "#f59e0b",
+      },
+      CANCELADA: {
+        bg: "rgba(239, 68, 68, 0.15)",
+        border: "rgba(239, 68, 68, 0.3)",
+        text: "#ef4444",
+      },
     };
-    return cores[s] || "#27272a";
+    return (
+      configs[status] || { bg: "#18181b", border: "#27272a", text: "#71717a" }
+    );
+  };
+
+  const getPriorityStyles = (prioridade) => {
+    if (prioridade?.includes("Emergencia"))
+      return {
+        bg: "rgba(168, 85, 247, 0.15)",
+        border: "rgba(168, 85, 247, 0.3)",
+        text: "#a855f7",
+      };
+    if (prioridade?.includes("Alta"))
+      return {
+        bg: "rgba(239, 68, 68, 0.15)",
+        border: "rgba(239, 68, 68, 0.3)",
+        text: "#ef4444",
+      };
+    return {
+      bg: "rgba(113, 113, 122, 0.15)",
+      border: "rgba(113, 113, 122, 0.3)",
+      text: "#a1a1aa",
+    };
   };
 
   const handleUpdate = (id, campo, valor) => {
@@ -67,15 +104,10 @@ const TabelaOS = () => {
         </H.TransitionOverlay>
       )}
 
-      {/* MENU HAMBURGUER (Apenas PC) */}
       <H.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
         {menuAberto ? "✕" : "☰"}
       </H.MenuToggle>
-
-      {/* OVERLAY DO MENU */}
       <H.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
-
-      {/* SIDEBAR RETRÁTIL */}
       <H.Sidebar isOpen={menuAberto}>
         <H.MenuItem
           active={location.pathname === "/"}
@@ -83,7 +115,6 @@ const TabelaOS = () => {
         >
           🗂️ Painel de Acompanhamento
         </H.MenuItem>
-
         <H.MenuItem
           active={location.pathname === "/tabela"}
           onClick={() => handleNavigation("/tabela")}
@@ -91,6 +122,7 @@ const TabelaOS = () => {
           📊 Tabela de Ordens de Serviço
         </H.MenuItem>
       </H.Sidebar>
+
       <S.PaginaContainer>
         <S.HeaderFixo>
           <h1 style={{ color: "transparent" }}>.</h1>
@@ -122,169 +154,294 @@ const TabelaOS = () => {
               </S.TrHeader>
             </thead>
             <tbody>
-              {ordens.map((os) => (
-                <tr key={os._id}>
-                  <S.Td style={{ fontWeight: "600", color: "#3b82f6" }}>
-                    #{os.numeroOS}
-                  </S.Td>
-                  <S.Td style={{ color: "#52525b" }}>
-                    {new Date(os.createdAt).toLocaleDateString()}
-                  </S.Td>
+              {ordens.map((os) => {
+                const sStyles = getStatusStyles(os.situacao);
+                const pStyles = getPriorityStyles(os.prioridade);
+                return (
+                  <tr key={os._id}>
+                    <S.Td style={{ fontWeight: "600", color: "#3b82f6" }}>
+                      #{os.numeroOS}
+                    </S.Td>
+                    <S.Td style={{ color: "#52525b" }}>
+                      {new Date(os.createdAt).toLocaleDateString()}
+                    </S.Td>
 
-                  <S.TdSelect width="220px">
-                    <S.SelectClean
-                      defaultValue={os.setor}
-                      onBlur={(e) =>
-                        handleUpdate(os._id, "setor", e.target.value)
-                      }
-                    >
-                      {opcoes?.setores?.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </S.SelectClean>
-                  </S.TdSelect>
+                    {/* SETOR */}
+                    <S.TdSelect width="200px">
+                      <div
+                        onClick={() =>
+                          setPopoverAberto({ id: os._id, field: "setor" })
+                        }
+                        style={{
+                          cursor: "pointer",
+                          padding: "8px",
+                          borderRadius: "4px",
+                          background: "#1f1f23",
+                          textAlign: "center",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {os.setor}
+                      </div>
+                      {popoverAberto?.id === os._id &&
+                        popoverAberto?.field === "setor" && (
+                          <SeletorGrade
+                            opcoes={opcoes?.setores}
+                            valorAtual={os.setor}
+                            aoSelecionar={(v) =>
+                              handleUpdate(os._id, "setor", v)
+                            }
+                            onClose={() => setPopoverAberto(null)}
+                          />
+                        )}
+                    </S.TdSelect>
 
-                  <S.TdSelect width="160px">
-                    <S.SelectClean
-                      defaultValue={os.solicitante}
-                      onBlur={(e) =>
-                        handleUpdate(os._id, "solicitante", e.target.value)
-                      }
-                    >
-                      {opcoes?.solicitantes?.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </S.SelectClean>
-                  </S.TdSelect>
+                    {/* SOLICITANTE */}
+                    <S.TdSelect width="180px">
+                      <div
+                        onClick={() =>
+                          setPopoverAberto({ id: os._id, field: "solicitante" })
+                        }
+                        style={{
+                          cursor: "pointer",
+                          padding: "6px",
+                          borderRadius: "4px",
+                          background: "rgba(59, 130, 246, 0.1)",
+                          color: "#3b82f6",
+                          border: "1px solid rgba(59, 130, 246, 0.2)",
+                          textAlign: "center",
+                        }}
+                      >
+                        {os.solicitante}
+                      </div>
+                      {popoverAberto?.id === os._id &&
+                        popoverAberto?.field === "solicitante" && (
+                          <SeletorGrade
+                            opcoes={opcoes?.solicitantes}
+                            valorAtual={os.solicitante}
+                            aoSelecionar={(v) =>
+                              handleUpdate(os._id, "solicitante", v)
+                            }
+                            onClose={() => setPopoverAberto(null)}
+                          />
+                        )}
+                    </S.TdSelect>
 
-                  <S.TdSelect width="160px">
-                    <S.SelectClean
-                      defaultValue={os.executor}
-                      onBlur={(e) =>
-                        handleUpdate(os._id, "executor", e.target.value)
-                      }
-                    >
-                      <option value="">Não Atribuído</option>
-                      {opcoes?.executores?.map((e) => (
-                        <option key={e} value={e}>
-                          {e}
-                        </option>
-                      ))}
-                    </S.SelectClean>
-                  </S.TdSelect>
+                    {/* EXECUTOR */}
+                    <S.TdSelect width="180px">
+                      <div
+                        onClick={() =>
+                          setPopoverAberto({ id: os._id, field: "executor" })
+                        }
+                        style={{
+                          cursor: "pointer",
+                          padding: "6px",
+                          borderRadius: "4px",
+                          background: os.executor
+                            ? "rgba(16, 185, 129, 0.1)"
+                            : "#18181b",
+                          color: os.executor ? "#10b981" : "#71717a",
+                          border: "1px solid rgba(16, 185, 129, 0.2)",
+                          textAlign: "center",
+                        }}
+                      >
+                        {os.executor || "Não Atribuído"}
+                      </div>
+                      {popoverAberto?.id === os._id &&
+                        popoverAberto?.field === "executor" && (
+                          <SeletorGrade
+                            opcoes={opcoes?.executores}
+                            valorAtual={os.executor}
+                            aoSelecionar={(v) =>
+                              handleUpdate(os._id, "executor", v)
+                            }
+                            onClose={() => setPopoverAberto(null)}
+                          />
+                        )}
+                    </S.TdSelect>
 
-                  <S.TdTexto width="180px">
-                    <S.EditableTextarea
-                      defaultValue={os.equipamento}
-                      onBlur={(e) =>
-                        handleUpdate(os._id, "equipamento", e.target.value)
-                      }
-                    />
-                  </S.TdTexto>
+                    <S.TdTexto width="180px">
+                      <S.EditableTextarea
+                        defaultValue={os.equipamento}
+                        onBlur={(e) =>
+                          handleUpdate(os._id, "equipamento", e.target.value)
+                        }
+                      />
+                    </S.TdTexto>
+                    <S.TdTexto width="480px">
+                      <S.EditableTextarea
+                        defaultValue={os.descricaoAbertura}
+                        onBlur={(e) =>
+                          handleUpdate(
+                            os._id,
+                            "descricaoAbertura",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </S.TdTexto>
 
-                  <S.TdTexto width="480px">
-                    <S.EditableTextarea
-                      defaultValue={os.descricaoAbertura}
-                      onBlur={(e) =>
-                        handleUpdate(
-                          os._id,
-                          "descricaoAbertura",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </S.TdTexto>
+                    {/* SITUAÇÃO */}
+                    <S.TdSelect width="180px">
+                      <div
+                        onClick={() =>
+                          setPopoverAberto({ id: os._id, field: "situacao" })
+                        }
+                        style={{
+                          cursor: "pointer",
+                          padding: "6px",
+                          borderRadius: "4px",
+                          background: sStyles.bg,
+                          border: `1px solid ${sStyles.border}`,
+                          color: sStyles.text,
+                          textAlign: "center",
 
-                  <S.TdSelect width="140px">
-                    <S.SelectStatus
-                      defaultValue={os.situacao}
-                      bgColor={getStatusColor(os.situacao)}
-                      onChange={(e) =>
-                        handleUpdate(os._id, "situacao", e.target.value)
-                      }
-                    >
-                      <option value="EM ABERTO">EM ABERTO</option>
-                      <option value="EM PROCESSO">EM PROCESSO</option>
-                      <option value="CONCLUÍDO">CONCLUÍDO</option>
-                    </S.SelectStatus>
-                  </S.TdSelect>
+                          fontWeight: "600",
+                        }}
+                      >
+                        {os.situacao || "Não Atribuído"}
+                      </div>
+                      {popoverAberto?.id === os._id &&
+                        popoverAberto?.field === "situacao" && (
+                          <SeletorGrade
+                            opcoes={[
+                              "EM ABERTO",
+                              "EM PROCESSO",
+                              "CONCLUÍDO",
+                              "CANCELADA",
+                            ]}
+                            valorAtual={os.situacao}
+                            aoSelecionar={(v) =>
+                              handleUpdate(os._id, "situacao", v)
+                            }
+                            onClose={() => setPopoverAberto(null)}
+                          />
+                        )}
+                    </S.TdSelect>
 
-                  <S.TdSelect width="120px">
-                    <S.SelectClean
-                      defaultValue={os.prioridade}
-                      onBlur={(e) =>
-                        handleUpdate(os._id, "prioridade", e.target.value)
-                      }
-                    >
-                      <option value="Normal (Sequência de execução)">
-                        Normal
-                      </option>
-                      <option value="Alta (No decorrer do dia)">Alta</option>
-                      <option value="Emergencia (Atendimento Imediato)">
-                        Emergência
-                      </option>
-                    </S.SelectClean>
-                  </S.TdSelect>
+                    {/* PRIORIDADE */}
+                    <S.TdSelect width="160px">
+                      <div
+                        onClick={() =>
+                          setPopoverAberto({ id: os._id, field: "prioridade" })
+                        }
+                        style={{
+                          cursor: "pointer",
+                          padding: "6px",
+                          borderRadius: "4px",
+                          background: pStyles.bg,
+                          border: `1px solid ${pStyles.border}`,
+                          color: pStyles.text,
+                          textAlign: "center",
+                        }}
+                      >
+                        {os.prioridade?.split(" ")[0] || "Normal"}
+                      </div>
+                      {popoverAberto?.id === os._id &&
+                        popoverAberto?.field === "prioridade" && (
+                          <SeletorGrade
+                            opcoes={[
+                              "Normal (Sequência de execução)",
+                              "Alta (No decorrer do dia)",
+                              "Emergencia (Atendimento Imediato)",
+                            ]}
+                            valorAtual={os.prioridade}
+                            aoSelecionar={(v) =>
+                              handleUpdate(os._id, "prioridade", v)
+                            }
+                            onClose={() => setPopoverAberto(null)}
+                          />
+                        )}
+                    </S.TdSelect>
 
-                  <S.Td>
-                    {os.arquivoAbertura ? (
-                      <a href={os.arquivoAbertura} target="_blank">
-                        🖼️
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </S.Td>
-                  <S.Td>
-                    {os.dataFechamento
-                      ? new Date(os.dataFechamento).toLocaleDateString()
-                      : "-"}
-                  </S.Td>
-
-                  <S.TdTexto width="200px">
-                    <S.EditableTextarea
-                      defaultValue={os.pecasUtilizadas}
-                      onBlur={(e) =>
-                        handleUpdate(os._id, "pecasUtilizadas", e.target.value)
-                      }
-                    />
-                  </S.TdTexto>
-
-                  <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
-                  <S.Td>
-                    {os.arquivoFechamento ? (
-                      <a href={os.arquivoFechamento} target="_blank">
-                        🖼️
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </S.Td>
-
-                  <S.TdTexto width="250px">
-                    <S.EditableTextarea
-                      defaultValue={os.descricaoFechamento}
-                      onBlur={(e) =>
-                        handleUpdate(
-                          os._id,
-                          "descricaoFechamento",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </S.TdTexto>
-
-                  <S.Td>
-                    <S.ActionButton onClick={() => useDeleteOs(os._id)}>
-                      ❌
-                    </S.ActionButton>
-                  </S.Td>
-                </tr>
-              ))}
+                    <S.Td>
+                      <S.FotoWrapper>
+                        {os.arquivoAbertura ? (
+                          <a
+                            href={os.arquivoAbertura}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Clique para ver em tamanho real"
+                          >
+                            <S.FotoThumbnail>
+                              {/* O timestamp ?t= força o navegador a atualizar se a foto mudar */}
+                              <img
+                                src={`${os.arquivoAbertura}?t=${new Date(os.createdAt).getTime()}`}
+                                alt="Foto da OS"
+                              />
+                            </S.FotoThumbnail>
+                          </a>
+                        ) : (
+                          <S.FotoThumbnail
+                            className="vazio"
+                            title="Nenhuma foto anexada"
+                          />
+                        )}
+                      </S.FotoWrapper>
+                    </S.Td>
+                    <S.Td>
+                      {os.dataFechamento
+                        ? new Date(os.dataFechamento).toLocaleDateString()
+                        : "-"}
+                    </S.Td>
+                    <S.TdTexto width="200px">
+                      <S.EditableTextarea
+                        defaultValue={os.pecasUtilizadas}
+                        onBlur={(e) =>
+                          handleUpdate(
+                            os._id,
+                            "pecasUtilizadas",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </S.TdTexto>
+                    <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
+                    {/* --- COLUNA FOTO FECHAMENTO --- */}
+                    <S.Td>
+                      <S.FotoWrapper>
+                        {os.arquivoFechamento ? (
+                          <a
+                            href={os.arquivoFechamento}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Clique para ver em tamanho real"
+                          >
+                            <S.FotoThumbnail>
+                              <img
+                                src={`${os.arquivoFechamento}?t=${new Date(os.updatedAt).getTime()}`}
+                                alt="Foto do Fechamento"
+                              />
+                            </S.FotoThumbnail>
+                          </a>
+                        ) : (
+                          <S.FotoThumbnail
+                            className="vazio"
+                            title="Nenhuma foto anexada"
+                          />
+                        )}
+                      </S.FotoWrapper>
+                    </S.Td>
+                    <S.TdTexto width="250px">
+                      <S.EditableTextarea
+                        defaultValue={os.descricaoFechamento}
+                        onBlur={(e) =>
+                          handleUpdate(
+                            os._id,
+                            "descricaoFechamento",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </S.TdTexto>
+                    <S.Td>
+                      <S.ActionButton onClick={() => useDeleteOs(os._id)}>
+                        ❌
+                      </S.ActionButton>
+                    </S.Td>
+                  </tr>
+                );
+              })}
             </tbody>
           </S.TabelaStyled>
         </S.TabelaWrapper>

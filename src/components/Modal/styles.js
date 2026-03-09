@@ -195,7 +195,30 @@ export const ModalFooter = styled.div`
   gap: 12px;
   background-color: #09090b;
 `;
+export const SeletorTrigger = styled.button`
+  width: 100%;
+  padding: 12px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  color: ${(props) => (props.temValor ? "#fafafa" : "#71717a")};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
 
+  &:hover {
+    border-color: #3f3f46;
+    background: #1f1f23;
+  }
+
+  .seta {
+    font-size: 12px;
+    color: #71717a;
+  }
+`;
 export const BotaoCancelar = styled.button`
   background: transparent;
   border: 1px solid #27272a;

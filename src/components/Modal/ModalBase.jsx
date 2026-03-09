@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import * as S from "./styles";
-import { useEffect } from "react";
+import SeletorGrade from "../PopoverTable/PopoverTable";
 
 const ModalBase = ({
   isOpen,
@@ -12,6 +12,9 @@ const ModalBase = ({
   data,
   setData,
 }) => {
+  // Estado para controlar qual popover de select está aberto no momento
+  const [campoAberto, setCampoAberto] = useState(null);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -50,17 +53,34 @@ const ModalBase = ({
               <label>{field.label}</label>
 
               {field.type === "select" ? (
-                <select
-                  value={data[field.name] || ""}
-                  onChange={(e) => handleChange(field.name, e.target.value)}
-                >
-                  <option value="">Selecione...</option>
-                  {field.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ position: "relative" }}>
+                  {/* Substituído o <select> por um Trigger customizado */}
+                  <S.SeletorTrigger
+                    type="button"
+                    onClick={() =>
+                      setCampoAberto(
+                        campoAberto === field.name ? null : field.name,
+                      )
+                    }
+                    temValor={!!data[field.name]}
+                  >
+                    <span>{data[field.name] || "Selecione..."}</span>
+                    <span className="seta">▾</span>
+                  </S.SeletorTrigger>
+
+                  {/* Popover que abre ao clicar */}
+                  {campoAberto === field.name && (
+                    <SeletorGrade
+                      opcoes={field.options}
+                      valorAtual={data[field.name]}
+                      aoSelecionar={(valor) => {
+                        handleChange(field.name, valor);
+                        setCampoAberto(null);
+                      }}
+                      onClose={() => setCampoAberto(null)}
+                    />
+                  )}
+                </div>
               ) : field.type === "textarea" ? (
                 <textarea
                   value={data[field.name] || ""}
