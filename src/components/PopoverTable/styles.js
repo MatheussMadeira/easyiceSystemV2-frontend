@@ -2,6 +2,7 @@ import styled from "styled-components";
 
 export const PopoverGrade = styled.div`
   position: absolute;
+  min-width: 350px;
   z-index: 1000;
   background: #18181b;
   border: 1px solid #27272a;
@@ -48,14 +49,14 @@ export const GradeHeader = styled.div`
 `;
 
 export const GradeContainer = styled.div`
-  display: flex; /* Mudamos de grid para flex */
-  flex-direction: column; /* Itens um embaixo do outro */
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   max-height: 250px;
-  width: 100%; /* Garante que ocupe o espaço disponível */
-  min-width: 250px; /* Evita que o popover fique muito estreito */
+  width: 100%;
+  min-width: 250px;
   overflow-y: auto;
-  overflow-x: hidden; /* Mata o scroll lateral */
+  overflow-x: hidden;
 
   grid-template-columns: 1fr;
 

@@ -12,7 +12,6 @@ const SeletorGrade = ({ opcoes, valorAtual, aoSelecionar, onClose }) => {
 
       <S.GradeContainer>
         {opcoes?.map((opt) => {
-          // Garante que temos uma string para exibir e para o charAt
           const textoExibicao =
             typeof opt === "string" ? opt : opt.nome || opt.label || "";
           const idUnico = opt._id || opt.value || textoExibicao;

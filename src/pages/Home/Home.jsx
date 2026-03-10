@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useOS } from "../../hooks/useOS";
 import { useAuth } from "../../hooks/useAuth";
 import ModalBase from "../../components/Modal/ModalBase";
 import ModalExecutor from "../../components/ModalExecutor/ModalExecutor";
-import ModalLogin from "../../components/ModalLogin/ModalLogin";
+import ModalLogin from "../Login/Login";
 import * as S from "./styles";
+import * as M from "../../components/MenuHamburguer/menu";
 import Swal from "sweetalert2";
 
 export default function Home() {
@@ -13,6 +14,11 @@ export default function Home() {
   const location = useLocation();
   // LOGICA DE LOGIN
   const { signed, user, login, logout, loadingAuth } = useAuth();
+  useEffect(() => {
+    if (!signed) {
+      navigate("/login");
+    }
+  }, [signed, navigate]);
   // 1. Pegamos os dados dinâmicos do hook useOS
   const { ordens, loading, opcoes, nextNumber, useCreateOs, useUpdateOs } =
     useOS();
@@ -38,9 +44,7 @@ export default function Home() {
   const [numeroOSParaBuscar, setNumeroOSParaBuscar] = useState("");
   const [menuAberto, setMenuAberto] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
-  if (!signed) {
-    return <ModalLogin onLogin={login} isLoading={loadingAuth} />;
-  }
+  if (!signed) return null;
   const Toast = Swal.mixin({
     toast: true,
     position: "top-end",
@@ -65,7 +69,7 @@ export default function Home() {
       .map((f) => f.name);
     const faltantes = obrigatorios.filter(
       (campo) =>
-        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
+        !dadosModal[campo] || dadosModal[campo].toString().trim() === "",
     );
 
     if (faltantes.length > 0 || !dadosModal.arquivoAbertura) {
@@ -81,7 +85,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key])
+        formData.append(key, dadosModal[key]),
       );
       const novaOSDoBanco = await useCreateOs(formData);
       setModalAberto(false);
@@ -100,7 +104,7 @@ export default function Home() {
         if (result.isConfirmed)
           window.open(
             gerarMensagemWhatsApp(novaOSDoBanco, "abertura"),
-            "_blank"
+            "_blank",
           );
       });
     } catch (err) {
@@ -112,7 +116,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key])
+        formData.append(key, dadosModal[key]),
       );
 
       // 1. Salva o número da OS antes de limpar os estados
@@ -129,7 +133,7 @@ export default function Home() {
       // 3. Lógica do Alerta Condicional
       if (situacaoFinal === "CONCLUÍDO") {
         const mensagemWpp = encodeURIComponent(
-          `✅ *OS #${numeroDaOS} Finalizada*\n\nO técnico concluiu o serviço solicitado.\n*Status:* Concluído\n*Data:* ${new Date().toLocaleDateString()}`
+          `✅ *OS #${numeroDaOS} Finalizada*\n\nO técnico concluiu o serviço solicitado.\n*Status:* Concluído\n*Data:* ${new Date().toLocaleDateString()}`,
         );
 
         Swal.fire({
@@ -150,7 +154,7 @@ export default function Home() {
         Swal.fire(
           "Atualizado!",
           `A OS foi movida para: ${situacaoFinal}`,
-          "success"
+          "success",
         );
       }
     } catch (err) {
@@ -163,7 +167,7 @@ export default function Home() {
     const filtradas = ordens.filter(
       (os) =>
         (tipo === "Executor" ? os.executor : os.solicitante) === nome &&
-        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO")
+        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO"),
     );
     setOsFiltradas(filtradas);
     setExecutorNome(nome);
@@ -285,27 +289,27 @@ export default function Home() {
   return (
     <div style={{ backgroundColor: "#09090b", minHeight: "100vh" }}>
       {(isNavigating || loading) && (
-        <S.TransitionOverlay>
+        <M.TransitionOverlay>
           <S.Spinner />
           <h2>Sincronizando base de dados...</h2>
-        </S.TransitionOverlay>
+        </M.TransitionOverlay>
       )}
 
-      <S.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
+      <M.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
         {menuAberto ? "✕" : "☰"}
-      </S.MenuToggle>
+      </M.MenuToggle>
 
-      <S.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
+      <M.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
 
-      <S.Sidebar isOpen={menuAberto}>
-        <S.MenuItem active onClick={() => handleNavigation("/")}>
+      <M.Sidebar isOpen={menuAberto}>
+        <M.MenuItem active onClick={() => handleNavigation("/")}>
           🗂️ Painel
-        </S.MenuItem>
-        <S.MenuItem onClick={() => handleNavigation("/tabela")}>
+        </M.MenuItem>
+        <M.MenuItem onClick={() => handleNavigation("/tabela")}>
           📊 Tabela
-        </S.MenuItem>
-        <S.MenuItem onClick={logout}>❌ Logout</S.MenuItem>
-      </S.Sidebar>
+        </M.MenuItem>
+        <M.MenuItem onClick={logout}>❌ Logout</M.MenuItem>
+      </M.Sidebar>
 
       <S.HomeContainer>
         {/* CARDS DE AÇÃO */}

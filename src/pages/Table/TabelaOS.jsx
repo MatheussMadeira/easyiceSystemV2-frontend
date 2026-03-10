@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useOS } from "../../hooks/useOS";
 import { useUser } from "../../hooks/useUser";
+import { useAuth } from "../../hooks/useAuth";
 import { useSettings } from "../../hooks/useSettings";
 import * as S from "./styles";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 import * as H from "../../components/MenuHamburguer/menu";
+import ModalLogin from "../../components/ModalLogin/ModalLogin";
 import SeletorGrade from "../../components/PopoverTable/PopoverTable";
 
 const TabelaOS = () => {
@@ -15,7 +17,12 @@ const TabelaOS = () => {
 
   // Hooks de Ordens de Serviço
   const { useDeleteOs, useUpdateInline } = useOS();
-
+  const { signed, user, login, logout, loadingAuth } = useAuth();
+  useEffect(() => {
+    if (!signed) {
+      navigate("/login");
+    }
+  }, [signed, navigate]);
   // Hooks de Gestão (para passar para o SeletorGrade)
   const { createUser, deleteUser } = useUser();
   const { create: createSetor, remove: deleteSetor } = useSettings("setores");
@@ -23,6 +30,9 @@ const TabelaOS = () => {
   const [menuAberto, setMenuAberto] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [popoverAberto, setPopoverAberto] = useState(null);
+  if (!signed) {
+    return null;
+  }
 
   // Busca de Ordens
   const { data: ordens = [], isLoading } = useQuery({
@@ -132,6 +142,7 @@ const TabelaOS = () => {
         >
           📊 Tabela
         </H.MenuItem>
+        <H.MenuItem onClick={logout}>❌ Logout</H.MenuItem>
       </H.Sidebar>
 
       <S.PaginaContainer>
@@ -289,7 +300,7 @@ const TabelaOS = () => {
                           handleUpdate(
                             os._id,
                             "descricaoAbertura",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                       />
@@ -369,7 +380,7 @@ const TabelaOS = () => {
                             <S.FotoThumbnail>
                               <img
                                 src={`${os.arquivoAbertura}?t=${new Date(
-                                  os.createdAt
+                                  os.createdAt,
                                 ).getTime()}`}
                                 alt="Foto"
                               />
@@ -393,7 +404,7 @@ const TabelaOS = () => {
                           handleUpdate(
                             os._id,
                             "pecasUtilizadas",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                       />
@@ -411,7 +422,7 @@ const TabelaOS = () => {
                             <S.FotoThumbnail>
                               <img
                                 src={`${os.arquivoFechamento}?t=${new Date(
-                                  os.updatedAt
+                                  os.updatedAt,
                                 ).getTime()}`}
                                 alt="Foto"
                               />
@@ -430,7 +441,7 @@ const TabelaOS = () => {
                           handleUpdate(
                             os._id,
                             "descricaoFechamento",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                       />
