@@ -54,12 +54,11 @@ const ModalBase = ({
 
               {field.type === "select" ? (
                 <div style={{ position: "relative" }}>
-                  {/* Substituído o <select> por um Trigger customizado */}
                   <S.SeletorTrigger
                     type="button"
                     onClick={() =>
                       setCampoAberto(
-                        campoAberto === field.name ? null : field.name,
+                        campoAberto === field.name ? null : field.name
                       )
                     }
                     temValor={!!data[field.name]}
@@ -67,8 +66,6 @@ const ModalBase = ({
                     <span>{data[field.name] || "Selecione..."}</span>
                     <span className="seta">▾</span>
                   </S.SeletorTrigger>
-
-                  {/* Popover que abre ao clicar */}
                   {campoAberto === field.name && (
                     <SeletorGrade
                       opcoes={field.options}

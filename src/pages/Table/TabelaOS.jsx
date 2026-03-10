@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useOS } from "../../hooks/useOS";
+import { useUser } from "../../hooks/useUser";
+import { useSettings } from "../../hooks/useSettings";
 import * as S from "./styles";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../services/api";
@@ -8,13 +10,21 @@ import * as H from "../../components/MenuHamburguer/menu";
 import SeletorGrade from "../../components/PopoverTable/PopoverTable";
 
 const TabelaOS = () => {
-  const { useDeleteOs, useUpdateInline } = useOS();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Hooks de Ordens de Serviço
+  const { useDeleteOs, useUpdateInline } = useOS();
+
+  // Hooks de Gestão (para passar para o SeletorGrade)
+  const { createUser, deleteUser } = useUser();
+  const { create: createSetor, remove: deleteSetor } = useSettings("setores");
+
   const [menuAberto, setMenuAberto] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [popoverAberto, setPopoverAberto] = useState(null);
 
+  // Busca de Ordens
   const { data: ordens = [], isLoading } = useQuery({
     queryKey: ["ordens"],
     queryFn: async () => {
@@ -24,6 +34,7 @@ const TabelaOS = () => {
     refetchOnWindowFocus: false,
   });
 
+  // Busca de Opções do Banco (Dinâmico)
   const { data: opcoes } = useQuery({
     queryKey: ["opcoes"],
     queryFn: async () => {
@@ -41,6 +52,10 @@ const TabelaOS = () => {
     setIsNavigating(true);
     setMenuAberto(false);
     setTimeout(() => navigate(path), 500);
+  };
+
+  const handleUpdate = (id, campo, valor) => {
+    useUpdateInline(id, { [campo]: valor });
   };
 
   const getStatusStyles = (status) => {
@@ -91,10 +106,6 @@ const TabelaOS = () => {
     };
   };
 
-  const handleUpdate = (id, campo, valor) => {
-    useUpdateInline(id, { [campo]: valor });
-  };
-
   return (
     <div>
       {(isLoading || isNavigating) && (
@@ -113,13 +124,13 @@ const TabelaOS = () => {
           active={location.pathname === "/"}
           onClick={() => handleNavigation("/")}
         >
-          🗂️ Painel de Acompanhamento
+          🗂️ Painel
         </H.MenuItem>
         <H.MenuItem
           active={location.pathname === "/tabela"}
           onClick={() => handleNavigation("/tabela")}
         >
-          📊 Tabela de Ordens de Serviço
+          📊 Tabela
         </H.MenuItem>
       </H.Sidebar>
 
@@ -135,22 +146,22 @@ const TabelaOS = () => {
           <S.TabelaStyled>
             <thead>
               <S.TrHeader>
-                <S.Th>Nº OS</S.Th>
-                <S.Th>Data Abertura</S.Th>
-                <S.Th>Setor</S.Th>
-                <S.Th>Solicitante</S.Th>
-                <S.Th>Executor</S.Th>
-                <S.Th>Equipamento</S.Th>
-                <S.Th>Descrição</S.Th>
-                <S.Th>Status</S.Th>
-                <S.Th>Prioridade</S.Th>
-                <S.Th>Foto Aber.</S.Th>
-                <S.Th>Fechamento</S.Th>
-                <S.Th>Peças</S.Th>
-                <S.Th>Valor R$</S.Th>
-                <S.Th>Foto Fech.</S.Th>
-                <S.Th>Obs. Técnica</S.Th>
-                <S.Th>Ações</S.Th>
+                <S.Th style={{ width: "100px" }}>Nº OS</S.Th>
+                <S.Th style={{ width: "120px" }}>Data Abertura</S.Th>
+                <S.Th style={{ width: "200px" }}>Setor</S.Th>
+                <S.Th style={{ width: "180px" }}>Solicitante</S.Th>
+                <S.Th style={{ width: "180px" }}>Executor</S.Th>
+                <S.Th style={{ width: "200px" }}>Equipamento</S.Th>
+                <S.Th style={{ width: "480px" }}>Descrição</S.Th>
+                <S.Th style={{ width: "160px" }}>Status</S.Th>
+                <S.Th style={{ width: "160px" }}>Prioridade</S.Th>
+                <S.Th style={{ width: "80px" }}>Foto</S.Th>
+                <S.Th style={{ width: "120px" }}>Fechamento</S.Th>
+                <S.Th style={{ width: "200px" }}>Peças</S.Th>
+                <S.Th style={{ width: "120px" }}>Valor R$</S.Th>
+                <S.Th style={{ width: "80px" }}>F. Final</S.Th>
+                <S.Th style={{ width: "250px" }}>Obs. Técnica</S.Th>
+                <S.Th style={{ width: "80px" }}>Ações</S.Th>
               </S.TrHeader>
             </thead>
             <tbody>
@@ -166,8 +177,8 @@ const TabelaOS = () => {
                       {new Date(os.createdAt).toLocaleDateString()}
                     </S.Td>
 
-                    {/* SETOR */}
-                    <S.TdSelect width="200px">
+                    {/* SETOR DINÂMICO */}
+                    <S.TdSelect>
                       <div
                         onClick={() =>
                           setPopoverAberto({ id: os._id, field: "setor" })
@@ -175,10 +186,8 @@ const TabelaOS = () => {
                         style={{
                           cursor: "pointer",
                           padding: "8px",
-                          borderRadius: "4px",
                           background: "#1f1f23",
-                          textAlign: "center",
-                          fontSize: "13px",
+                          borderRadius: "4px",
                         }}
                       >
                         {os.setor}
@@ -186,18 +195,21 @@ const TabelaOS = () => {
                       {popoverAberto?.id === os._id &&
                         popoverAberto?.field === "setor" && (
                           <SeletorGrade
+                            tipo="setor"
                             opcoes={opcoes?.setores}
                             valorAtual={os.setor}
                             aoSelecionar={(v) =>
                               handleUpdate(os._id, "setor", v)
                             }
                             onClose={() => setPopoverAberto(null)}
+                            acaoCriar={createSetor}
+                            acaoDeletar={deleteSetor}
                           />
                         )}
                     </S.TdSelect>
 
-                    {/* SOLICITANTE */}
-                    <S.TdSelect width="180px">
+                    {/* SOLICITANTE DINÂMICO */}
+                    <S.TdSelect>
                       <div
                         onClick={() =>
                           setPopoverAberto({ id: os._id, field: "solicitante" })
@@ -205,11 +217,9 @@ const TabelaOS = () => {
                         style={{
                           cursor: "pointer",
                           padding: "6px",
-                          borderRadius: "4px",
                           background: "rgba(59, 130, 246, 0.1)",
                           color: "#3b82f6",
-                          border: "1px solid rgba(59, 130, 246, 0.2)",
-                          textAlign: "center",
+                          borderRadius: "4px",
                         }}
                       >
                         {os.solicitante}
@@ -217,18 +227,21 @@ const TabelaOS = () => {
                       {popoverAberto?.id === os._id &&
                         popoverAberto?.field === "solicitante" && (
                           <SeletorGrade
+                            tipo="solicitante"
                             opcoes={opcoes?.solicitantes}
                             valorAtual={os.solicitante}
                             aoSelecionar={(v) =>
                               handleUpdate(os._id, "solicitante", v)
                             }
                             onClose={() => setPopoverAberto(null)}
+                            acaoCriar={createUser}
+                            acaoDeletar={deleteUser}
                           />
                         )}
                     </S.TdSelect>
 
-                    {/* EXECUTOR */}
-                    <S.TdSelect width="180px">
+                    {/* EXECUTOR DINÂMICO */}
+                    <S.TdSelect>
                       <div
                         onClick={() =>
                           setPopoverAberto({ id: os._id, field: "executor" })
@@ -236,13 +249,11 @@ const TabelaOS = () => {
                         style={{
                           cursor: "pointer",
                           padding: "6px",
-                          borderRadius: "4px",
                           background: os.executor
                             ? "rgba(16, 185, 129, 0.1)"
                             : "#18181b",
                           color: os.executor ? "#10b981" : "#71717a",
-                          border: "1px solid rgba(16, 185, 129, 0.2)",
-                          textAlign: "center",
+                          borderRadius: "4px",
                         }}
                       >
                         {os.executor || "Não Atribuído"}
@@ -250,17 +261,20 @@ const TabelaOS = () => {
                       {popoverAberto?.id === os._id &&
                         popoverAberto?.field === "executor" && (
                           <SeletorGrade
+                            tipo="executor"
                             opcoes={opcoes?.executores}
                             valorAtual={os.executor}
                             aoSelecionar={(v) =>
                               handleUpdate(os._id, "executor", v)
                             }
                             onClose={() => setPopoverAberto(null)}
+                            acaoCriar={createUser}
+                            acaoDeletar={deleteUser}
                           />
                         )}
                     </S.TdSelect>
 
-                    <S.TdTexto width="180px">
+                    <S.TdTexto>
                       <S.EditableTextarea
                         defaultValue={os.equipamento}
                         onBlur={(e) =>
@@ -268,21 +282,21 @@ const TabelaOS = () => {
                         }
                       />
                     </S.TdTexto>
-                    <S.TdTexto width="480px">
+                    <S.TdTexto>
                       <S.EditableTextarea
                         defaultValue={os.descricaoAbertura}
                         onBlur={(e) =>
                           handleUpdate(
                             os._id,
                             "descricaoAbertura",
-                            e.target.value,
+                            e.target.value
                           )
                         }
                       />
                     </S.TdTexto>
 
-                    {/* SITUAÇÃO */}
-                    <S.TdSelect width="180px">
+                    {/* STATUS */}
+                    <S.TdSelect>
                       <div
                         onClick={() =>
                           setPopoverAberto({ id: os._id, field: "situacao" })
@@ -290,26 +304,18 @@ const TabelaOS = () => {
                         style={{
                           cursor: "pointer",
                           padding: "6px",
-                          borderRadius: "4px",
                           background: sStyles.bg,
-                          border: `1px solid ${sStyles.border}`,
                           color: sStyles.text,
-                          textAlign: "center",
-
+                          borderRadius: "4px",
                           fontWeight: "600",
                         }}
                       >
-                        {os.situacao || "Não Atribuído"}
+                        {os.situacao}
                       </div>
                       {popoverAberto?.id === os._id &&
                         popoverAberto?.field === "situacao" && (
                           <SeletorGrade
-                            opcoes={[
-                              "EM ABERTO",
-                              "EM PROCESSO",
-                              "CONCLUÍDO",
-                              "CANCELADA",
-                            ]}
+                            opcoes={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
                             valorAtual={os.situacao}
                             aoSelecionar={(v) =>
                               handleUpdate(os._id, "situacao", v)
@@ -320,7 +326,7 @@ const TabelaOS = () => {
                     </S.TdSelect>
 
                     {/* PRIORIDADE */}
-                    <S.TdSelect width="160px">
+                    <S.TdSelect>
                       <div
                         onClick={() =>
                           setPopoverAberto({ id: os._id, field: "prioridade" })
@@ -328,14 +334,12 @@ const TabelaOS = () => {
                         style={{
                           cursor: "pointer",
                           padding: "6px",
-                          borderRadius: "4px",
                           background: pStyles.bg,
-                          border: `1px solid ${pStyles.border}`,
                           color: pStyles.text,
-                          textAlign: "center",
+                          borderRadius: "4px",
                         }}
                       >
-                        {os.prioridade?.split(" ")[0] || "Normal"}
+                        {os.prioridade?.split(" ")[0]}
                       </div>
                       {popoverAberto?.id === os._id &&
                         popoverAberto?.field === "prioridade" && (
@@ -361,43 +365,41 @@ const TabelaOS = () => {
                             href={os.arquivoAbertura}
                             target="_blank"
                             rel="noreferrer"
-                            title="Clique para ver em tamanho real"
                           >
                             <S.FotoThumbnail>
-                              {/* O timestamp ?t= força o navegador a atualizar se a foto mudar */}
                               <img
-                                src={`${os.arquivoAbertura}?t=${new Date(os.createdAt).getTime()}`}
-                                alt="Foto da OS"
+                                src={`${os.arquivoAbertura}?t=${new Date(
+                                  os.createdAt
+                                ).getTime()}`}
+                                alt="Foto"
                               />
                             </S.FotoThumbnail>
                           </a>
                         ) : (
-                          <S.FotoThumbnail
-                            className="vazio"
-                            title="Nenhuma foto anexada"
-                          />
+                          <S.FotoThumbnail className="vazio" />
                         )}
                       </S.FotoWrapper>
                     </S.Td>
+
                     <S.Td>
                       {os.dataFechamento
                         ? new Date(os.dataFechamento).toLocaleDateString()
                         : "-"}
                     </S.Td>
-                    <S.TdTexto width="200px">
+                    <S.TdTexto>
                       <S.EditableTextarea
                         defaultValue={os.pecasUtilizadas}
                         onBlur={(e) =>
                           handleUpdate(
                             os._id,
                             "pecasUtilizadas",
-                            e.target.value,
+                            e.target.value
                           )
                         }
                       />
                     </S.TdTexto>
                     <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
-                    {/* --- COLUNA FOTO FECHAMENTO --- */}
+
                     <S.Td>
                       <S.FotoWrapper>
                         {os.arquivoFechamento ? (
@@ -405,31 +407,30 @@ const TabelaOS = () => {
                             href={os.arquivoFechamento}
                             target="_blank"
                             rel="noreferrer"
-                            title="Clique para ver em tamanho real"
                           >
                             <S.FotoThumbnail>
                               <img
-                                src={`${os.arquivoFechamento}?t=${new Date(os.updatedAt).getTime()}`}
-                                alt="Foto do Fechamento"
+                                src={`${os.arquivoFechamento}?t=${new Date(
+                                  os.updatedAt
+                                ).getTime()}`}
+                                alt="Foto"
                               />
                             </S.FotoThumbnail>
                           </a>
                         ) : (
-                          <S.FotoThumbnail
-                            className="vazio"
-                            title="Nenhuma foto anexada"
-                          />
+                          <S.FotoThumbnail className="vazio" />
                         )}
                       </S.FotoWrapper>
                     </S.Td>
-                    <S.TdTexto width="250px">
+
+                    <S.TdTexto>
                       <S.EditableTextarea
                         defaultValue={os.descricaoFechamento}
                         onBlur={(e) =>
                           handleUpdate(
                             os._id,
                             "descricaoFechamento",
-                            e.target.value,
+                            e.target.value
                           )
                         }
                       />
