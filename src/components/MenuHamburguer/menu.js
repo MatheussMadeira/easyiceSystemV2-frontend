@@ -134,3 +134,17 @@ export const TransitionOverlay = styled.div`
     font-weight: 500;
   }
 `;
+export const Spinner = styled.div`
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.05);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;

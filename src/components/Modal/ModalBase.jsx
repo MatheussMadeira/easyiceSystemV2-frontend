@@ -11,6 +11,7 @@ const ModalBase = ({
   subtitle,
   data,
   setData,
+  footerActions,
 }) => {
   // Estado para controlar qual popover de select está aberto no momento
   const [campoAberto, setCampoAberto] = useState(null);
@@ -104,6 +105,7 @@ const ModalBase = ({
         </S.ModalBody>
 
         <S.ModalFooter>
+          {footerActions}
           <S.BotaoCancelar onClick={onClose}>Cancelar</S.BotaoCancelar>
           <S.BotaoConfirmar onClick={onSubmit}>Confirmar</S.BotaoConfirmar>
         </S.ModalFooter>

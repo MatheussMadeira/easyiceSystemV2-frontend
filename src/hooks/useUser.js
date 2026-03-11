@@ -4,7 +4,7 @@ import api from "../services/api";
 export const useUser = () => {
   const queryClient = useQueryClient();
 
-  // Busca todos os usuários (Técnicos, Solicitantes, Admins)
+  // Busca todos os usuários (Objetos completos com ID, Nome, Email, Funções)
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -17,19 +17,32 @@ export const useUser = () => {
     mutationFn: (dados) => api.post("/users", dados),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      queryClient.invalidateQueries({ queryKey: ["opcoes"] }); // Atualiza os selects da Home
+      queryClient.invalidateQueries({ queryKey: ["opcoes"] });
+    },
+  });
+
+  // ADICIONADO: Mutação para Editar
+  const updateMutation = useMutation({
+    mutationFn: ({ id, dados }) => api.put(`/users/${id}`, dados),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["opcoes"] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/users/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["opcoes"] });
+    },
   });
 
   return {
-    usuarios,
+    usuarios, // Lista completa para usarmos o .find()
     loading: isLoading,
     createUser: createMutation.mutateAsync,
+    updateUser: updateMutation.mutateAsync, // Exportando o update
     deleteUser: deleteMutation.mutateAsync,
   };
 };

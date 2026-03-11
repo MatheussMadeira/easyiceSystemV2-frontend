@@ -69,7 +69,7 @@ export default function Home() {
       .map((f) => f.name);
     const faltantes = obrigatorios.filter(
       (campo) =>
-        !dadosModal[campo] || dadosModal[campo].toString().trim() === "",
+        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
     );
 
     if (faltantes.length > 0 || !dadosModal.arquivoAbertura) {
@@ -85,7 +85,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key]),
+        formData.append(key, dadosModal[key])
       );
       const novaOSDoBanco = await useCreateOs(formData);
       setModalAberto(false);
@@ -104,11 +104,20 @@ export default function Home() {
         if (result.isConfirmed)
           window.open(
             gerarMensagemWhatsApp(novaOSDoBanco, "abertura"),
-            "_blank",
+            "_blank"
           );
       });
     } catch (err) {
-      Swal.fire("Erro", "Erro ao criar: " + err.message, "error");
+      // CAPTURA DE ERRO CUSTOMIZADA
+      const mensagemAmigavel =
+        err.response?.data?.erro || "Não foi possível abrir a OS.";
+
+      Swal.fire({
+        title: "Ação Não Permitida",
+        text: mensagemAmigavel,
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
     }
   };
 
@@ -116,24 +125,21 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key]),
+        formData.append(key, dadosModal[key])
       );
 
-      // 1. Salva o número da OS antes de limpar os estados
       const numeroDaOS = osAtual.numeroOS;
       const situacaoFinal = dadosModal.situacao;
 
       await useUpdateOs(osAtual._id, formData);
 
-      // 2. Limpeza dos estados do modal
       setModalFechamentoAberto(false);
       setDadosModal({});
       setNumeroOSParaBuscar("");
 
-      // 3. Lógica do Alerta Condicional
       if (situacaoFinal === "CONCLUÍDO") {
         const mensagemWpp = encodeURIComponent(
-          `✅ *OS #${numeroDaOS} Finalizada*\n\nO técnico concluiu o serviço solicitado.\n*Status:* Concluído\n*Data:* ${new Date().toLocaleDateString()}`,
+          `✅ *OS #${numeroDaOS} Finalizada*\n\nO técnico concluiu o serviço solicitado.\n*Status:* Concluído\n*Data:* ${new Date().toLocaleDateString()}`
         );
 
         Swal.fire({
@@ -143,22 +149,30 @@ export default function Home() {
           showCancelButton: true,
           confirmButtonText: "📱 Avisar no WhatsApp",
           cancelButtonText: "Fechar",
-          confirmButtonColor: "#25D366", // Cor do WhatsApp
+          confirmButtonColor: "#25D366",
         }).then((result) => {
           if (result.isConfirmed) {
             window.open(`https://wa.me/?text=${mensagemWpp}`, "_blank");
           }
         });
       } else {
-        // Alerta simples para "EM PROCESSO"
         Swal.fire(
           "Atualizado!",
           `A OS foi movida para: ${situacaoFinal}`,
-          "success",
+          "success"
         );
       }
     } catch (err) {
-      Swal.fire("Erro", err.message, "error");
+      // CAPTURA DE ERRO CUSTOMIZADA
+      const mensagemAmigavel =
+        err.response?.data?.erro || "Erro ao atualizar status da OS.";
+
+      Swal.fire({
+        title: "Acesso Negado",
+        text: mensagemAmigavel,
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
     }
   };
 
@@ -167,7 +181,7 @@ export default function Home() {
     const filtradas = ordens.filter(
       (os) =>
         (tipo === "Executor" ? os.executor : os.solicitante) === nome &&
-        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO"),
+        (os.situacao === "EM ABERTO" || os.situacao === "EM PROCESSO")
     );
     setOsFiltradas(filtradas);
     setExecutorNome(nome);
@@ -317,7 +331,12 @@ export default function Home() {
           <h3>Abrir Nova OS</h3>
           <p>PRÓXIMA OS DISPONÍVEL:</p>
           <S.ProximaOS>#{nextNumber || "..."}</S.ProximaOS>
-          <S.BotaoCard onClick={() => setModalAberto(true)}>
+          <S.BotaoCard
+            onClick={() => {
+              setDadosModal({});
+              setModalAberto(true);
+            }}
+          >
             Abrir Nova OS
           </S.BotaoCard>
         </S.Card>

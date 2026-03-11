@@ -1,39 +1,47 @@
-// PopoverTable.jsx
-import * as S from "./styles";
 import React from "react";
+import * as S from "./styles";
 
-const SeletorGrade = ({ opcoes, valorAtual, aoSelecionar, onClose }) => {
+const SeletorGrade = ({
+  tipo,
+  opcoes,
+  valorAtual,
+  aoSelecionar,
+  onClose,
+  acaoCriarUsuario,
+  acaoEditarUsuario,
+}) => {
   return (
-    <S.PopoverGrade onClick={(e) => e.stopPropagation()}>
-      <S.GradeHeader>
-        <span>Selecionar Opção</span>
-        <button onClick={onClose}>&times;</button>
-      </S.GradeHeader>
+    <S.PopoverWrapper>
+      <S.PopoverHeader>
+        <span>Selecionar {tipo}</span>
+        <button onClick={onClose}>✕</button>
+      </S.PopoverHeader>
 
-      <S.GradeContainer>
-        {opcoes?.map((opt) => {
-          const textoExibicao =
-            typeof opt === "string" ? opt : opt.nome || opt.label || "";
-          const idUnico = opt._id || opt.value || textoExibicao;
+      <S.ListaOpcoes>
+        {opcoes?.map((opt) => (
+          <S.OpcaoItem key={opt} active={opt === valorAtual}>
+            <div className="nome-clicavel" onClick={() => aoSelecionar(opt)}>
+              {opt}
+            </div>
 
-          return (
-            <S.BotaoOpcao
-              key={idUnico}
-              ativo={valorAtual === textoExibicao}
-              onClick={() => {
-                aoSelecionar(textoExibicao);
-                onClose();
-              }}
-            >
-              <span className="avatar">
-                {textoExibicao ? textoExibicao.charAt(0).toUpperCase() : "?"}
-              </span>
-              <span className="nome">{textoExibicao}</span>
-            </S.BotaoOpcao>
-          );
-        })}
-      </S.GradeContainer>
-    </S.PopoverGrade>
+            {/* Botão de Edição (Pincel) */}
+            {(tipo === "solicitante" || tipo === "executor") && (
+              <S.BotaoEditarMini onClick={() => acaoEditarUsuario(opt)}>
+                ✎
+              </S.BotaoEditarMini>
+            )}
+          </S.OpcaoItem>
+        ))}
+      </S.ListaOpcoes>
+
+      {(tipo === "solicitante" || tipo === "executor") && (
+        <S.PopoverFooter>
+          <S.BotaoAdicionarRapido onClick={acaoCriarUsuario}>
+            + Adicionar Novo Usuário
+          </S.BotaoAdicionarRapido>
+        </S.PopoverFooter>
+      )}
+    </S.PopoverWrapper>
   );
 };
 

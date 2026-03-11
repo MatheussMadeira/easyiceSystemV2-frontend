@@ -1,6 +1,6 @@
 import styled from "styled-components";
 
-export const PopoverGrade = styled.div`
+export const PopoverWrapper = styled.div`
   position: absolute;
   min-width: 350px;
   z-index: 1000;
@@ -25,7 +25,7 @@ export const PopoverGrade = styled.div`
   }
 `;
 
-export const GradeHeader = styled.div`
+export const PopoverHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -48,17 +48,14 @@ export const GradeHeader = styled.div`
   }
 `;
 
-export const GradeContainer = styled.div`
+export const ListaOpcoes = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   max-height: 250px;
   width: 100%;
-  min-width: 250px;
   overflow-y: auto;
   overflow-x: hidden;
-
-  grid-template-columns: 1fr;
 
   &::-webkit-scrollbar {
     width: 4px;
@@ -69,41 +66,66 @@ export const GradeContainer = styled.div`
   }
 `;
 
-export const BotaoOpcao = styled.button`
+export const OpcaoItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: ${(props) =>
-    props.ativo ? "rgba(59, 130, 246, 0.2)" : "#09090b"};
-  border: 1px solid ${(props) => (props.ativo ? "#3b82f6" : "#27272a")};
-  border-radius: 6px;
-  color: #fafafa;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: ${(props) => (props.active ? "#1e293b" : "transparent")};
   cursor: pointer;
+  border-radius: 6px;
   transition: all 0.2s;
-  text-align: left;
 
-  &:hover {
-    background: #27272a;
-    border-color: #3f3f46;
-  }
-
-  .avatar {
-    width: 20px;
-    height: 20px;
-    background: #3b82f6;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: bold;
-  }
-
-  .nome {
-    font-size: 12px;
+  .nome-clicavel {
+    flex: 1;
+    color: ${(props) => (props.active ? "#3b82f6" : "#e4e4e7")};
+    font-size: 13px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  &:hover {
+    background: #27272a;
+  }
+`;
+
+export const BotaoEditarMini = styled.button`
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-left: 8px;
+
+  &:hover {
+    color: #fafafa;
+    background: #3f3f46;
+  }
+`;
+
+export const PopoverFooter = styled.div`
+  padding-top: 12px;
+  border-top: 1px solid #27272a;
+  margin-top: 8px;
+`;
+
+export const BotaoAdicionarRapido = styled.button`
+  width: 100%;
+  background: transparent;
+  border: 1px dashed #3f3f46;
+  color: #a1a1aa;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
   }
 `;

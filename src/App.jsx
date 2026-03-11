@@ -22,15 +22,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// COMPONENTE DE ROTA PRIVADA
-// Ele verifica se o usuário está logado. Se não, manda pro /login
 const PrivateRoute = ({ children }) => {
   const { signed } = useAuth();
   return signed ? children : <Navigate to="/login" />;
 };
 
 function App() {
-  // Pegamos as funções de login aqui para passar para a página de Login
   const { login, loadingAuth } = useAuth();
 
   return (
