@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useOS } from "../../hooks/useOS";
 import { useUser } from "../../hooks/useUser";
 import { useAuth } from "../../hooks/useAuth";
@@ -11,6 +11,10 @@ import * as H from "../../components/MenuHamburguer/menu";
 import SeletorGrade from "../../components/PopoverTable/PopoverTable";
 import ModalBase from "../../components/Modal/ModalBase";
 import Swal from "sweetalert2";
+import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
+import FiltroAvancado from "../../components/FiltroAvancado/FiltroAvancado.jsx";
+import * as XLSX from "xlsx";
+import SeletorColunas from "../../components/SeletorColunas/SeletorColunas.jsx";
 
 const TabelaOS = () => {
   const navigate = useNavigate();
@@ -23,7 +27,6 @@ const TabelaOS = () => {
   const { create: createSetor, remove: deleteSetor } = useSettings("setores");
 
   // Estados de Interface
-  const [menuAberto, setMenuAberto] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [popoverAberto, setPopoverAberto] = useState(null);
 
@@ -37,10 +40,45 @@ const TabelaOS = () => {
     funcoes: [],
   });
 
+  // Estados de filtro
+  const [filtros, setFiltros] = useState({
+    buscaGlobal: "",
+    setor: [],
+    situacao: [],
+    prioridade: [],
+    executor: [],
+    solicitante: [],
+  });
+
+  const IDS_COLUNAS = {
+    NUMERO: "numeroOS",
+    ABERTURA: "abertura",
+    SETOR: "setor",
+    SOLICITANTE: "solicitante",
+    EXECUTOR: "executor",
+    EQUIPAMENTO: "equipamento",
+    DESCRICAO: "descricao",
+    STATUS: "status",
+    PRIORIDADE: "prioridade",
+    FOTO_INI: "foto_inicio",
+    OBS: "obs", // Andamento / Processo
+    DESC_FECHAMENTO: "desc_fechamento", // Relatório Final
+    FECHAMENTO: "fechamento",
+    PECAS: "pecas",
+    VALOR: "valor",
+    FOTO_FIM: "foto_fim",
+    ACOES: "acoes",
+  };
+
+  const [abaFiltroAberta, setAbaFiltroAberta] = useState(false);
+  const [seletorAberto, setSeletorAberto] = useState(false);
+  const [colunasVisiveis, setColunasVisiveis] = useState(
+    Object.values(IDS_COLUNAS)
+  );
+
   // --- LOGICA DE USUÁRIOS ---
   const handleDeletarUsuario = async () => {
     if (!usuarioParaEditar) return;
-
     const result = await Swal.fire({
       title: `Remover ${usuarioParaEditar.nome}?`,
       text: "Isso excluirá o acesso deste usuário ao sistema.",
@@ -53,7 +91,7 @@ const TabelaOS = () => {
 
     if (result.isConfirmed) {
       try {
-        await deleteUser(usuarioParaEditar._id); // Usando a função do hook
+        await deleteUser(usuarioParaEditar._id);
         Swal.fire("Removido!", "O usuário foi excluído.", "success");
         setModalUsuarioAberto(false);
       } catch (err) {
@@ -62,12 +100,11 @@ const TabelaOS = () => {
       }
     }
   };
+
   const prepararEdicao = (nomeDoUsuario) => {
-    // Usamos .toLowerCase() em ambos os lados para garantir que "Teste" encontre "TESTE"
     const userEncontrado = usuarios.find(
       (u) => u.nome.toLowerCase().trim() === nomeDoUsuario.toLowerCase().trim()
     );
-
     if (userEncontrado) {
       setUsuarioParaEditar(userEncontrado);
       setDadosUsuario({
@@ -78,16 +115,6 @@ const TabelaOS = () => {
       });
       setModalUsuarioAberto(true);
       setPopoverAberto(null);
-    } else {
-      // Se ainda assim não achar, vamos ver no console o que está chegando
-      console.log("Nome vindo do Popover:", nomeDoUsuario);
-      console.log("Lista de usuários no state:", usuarios);
-
-      Swal.fire(
-        "Erro",
-        "Usuário não encontrado na base de dados local.",
-        "warning"
-      );
     }
   };
 
@@ -114,8 +141,68 @@ const TabelaOS = () => {
     }
   };
 
-  // --- BUSCA DE DADOS (React Query) ---
+  const toggleColuna = (id) => {
+    setColunasVisiveis((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
 
+  const handleExportarExcel = () => {
+    if (ordensFiltradas.length === 0) {
+      return Swal.fire(
+        "Aviso",
+        "Não há dados filtrados para exportar.",
+        "info"
+      );
+    }
+
+    const dadosParaExportar = ordensFiltradas.map((os) => {
+      const linha = {};
+      if (colunasVisiveis.includes(IDS_COLUNAS.NUMERO))
+        linha["Nº OS"] = os.numeroOS;
+      if (colunasVisiveis.includes(IDS_COLUNAS.ABERTURA))
+        linha["Data Abertura"] = new Date(os.createdAt).toLocaleDateString();
+      if (colunasVisiveis.includes(IDS_COLUNAS.SETOR))
+        linha["Setor"] = os.setor;
+      if (colunasVisiveis.includes(IDS_COLUNAS.SOLICITANTE))
+        linha["Solicitante"] = os.solicitante;
+      if (colunasVisiveis.includes(IDS_COLUNAS.EXECUTOR))
+        linha["Executor"] = os.executor || "Não Atribuído";
+      if (colunasVisiveis.includes(IDS_COLUNAS.EQUIPAMENTO))
+        linha["Equipamento"] = os.equipamento;
+      if (colunasVisiveis.includes(IDS_COLUNAS.DESCRICAO))
+        linha["Descrição"] = os.descricaoAbertura;
+      if (colunasVisiveis.includes(IDS_COLUNAS.STATUS))
+        linha["Status"] = os.situacao;
+      if (colunasVisiveis.includes(IDS_COLUNAS.PRIORIDADE))
+        linha["Prioridade"] = os.prioridade;
+      if (colunasVisiveis.includes(IDS_COLUNAS.OBS))
+        linha["Obs Técnica (Andamento)"] = os.descricaoProcesso || "-";
+      if (colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO))
+        linha["Relatório Final"] = os.descricaoFechamento || "-";
+      if (colunasVisiveis.includes(IDS_COLUNAS.FECHAMENTO))
+        linha["Data Fechamento"] = os.dataFechamento
+          ? new Date(os.dataFechamento).toLocaleDateString()
+          : "-";
+      if (colunasVisiveis.includes(IDS_COLUNAS.PECAS))
+        linha["Peças Utilizadas"] = os.pecasUtilizadas || "-";
+      if (colunasVisiveis.includes(IDS_COLUNAS.VALOR))
+        linha["Valor R$"] = os.valorPecas || "0,00";
+
+      return linha;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dadosParaExportar);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório OS");
+    XLSX.writeFile(
+      workbook,
+      `Relatorio_OS_${new Date().toLocaleDateString().replace(/\//g, "-")}.xlsx`
+    );
+    Swal.fire("Sucesso", "Relatório exportado!", "success");
+  };
+
+  // --- BUSCA DE DADOS (React Query) ---
   const { data: ordens = [], isLoading } = useQuery({
     queryKey: ["ordens"],
     queryFn: async () => {
@@ -136,12 +223,84 @@ const TabelaOS = () => {
     staleTime: 600000,
   });
 
-  // --- AÇÕES DA TABELA ---
+  const handleLimparTudo = () => {
+    setFiltros({
+      buscaGlobal: "",
+      setor: [],
+      situacao: [],
+      prioridade: [],
+      executor: [],
+      solicitante: [],
+    });
+    setColunasVisiveis(Object.values(IDS_COLUNAS));
+    setAbaFiltroAberta(false);
+    setSeletorAberto(false);
+  };
 
-  const handleNavigation = (path) => {
-    setMenuAberto(false);
-    setIsNavigating(true);
-    setTimeout(() => navigate(path), 500);
+  const ordensFiltradas = useMemo(() => {
+    return ordens.filter((os) => {
+      const normalizar = (texto) => {
+        if (!texto) return "";
+        return texto
+          .toString()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .trim();
+      };
+
+      const buscaLimpa = normalizar(filtros.buscaGlobal);
+      const regex = new RegExp(buscaLimpa, "i");
+
+      const matchBusca =
+        !buscaLimpa ||
+        regex.test(normalizar(os.numeroOS)) ||
+        regex.test(normalizar(os.equipamento)) ||
+        regex.test(normalizar(os.descricaoAbertura)) ||
+        regex.test(normalizar(os.descricaoProcesso)) || // Pesquisa no andamento
+        regex.test(normalizar(os.descricaoFechamento)) || // Pesquisa no fechamento
+        regex.test(normalizar(os.setor)) ||
+        regex.test(normalizar(os.solicitante)) ||
+        regex.test(normalizar(os.executor));
+
+      const matchSetor =
+        filtros.setor.length === 0 ||
+        filtros.setor.some((s) => normalizar(s) === normalizar(os.setor));
+      const matchSituacao =
+        filtros.situacao.length === 0 || filtros.situacao.includes(os.situacao);
+      const matchExecutor =
+        filtros.executor.length === 0 ||
+        filtros.executor.some((e) => normalizar(e) === normalizar(os.executor));
+      const matchSolicitante =
+        filtros.solicitante.length === 0 ||
+        filtros.solicitante.some(
+          (s) => normalizar(s) === normalizar(os.solicitante)
+        );
+      const matchPrioridade =
+        filtros.prioridade.length === 0 ||
+        filtros.prioridade.some(
+          (s) => normalizar(s) === normalizar(os.prioridade)
+        );
+
+      return (
+        matchBusca &&
+        matchSetor &&
+        matchSituacao &&
+        matchExecutor &&
+        matchSolicitante &&
+        matchPrioridade
+      );
+    });
+  }, [ordens, filtros]);
+
+  const toggleFiltro = (categoria, valor) => {
+    setFiltros((prev) => {
+      const listaAtual = prev[categoria];
+      const novaLista = listaAtual.includes(valor)
+        ? listaAtual.filter((item) => item !== valor)
+        : [...listaAtual, valor];
+      return { ...prev, [categoria]: novaLista };
+    });
   };
 
   const handleUpdate = async (id, campo, valor) => {
@@ -154,16 +313,25 @@ const TabelaOS = () => {
   };
 
   const handleDelete = async (id) => {
-    const res = await Swal.fire({
-      title: "Excluir OS?",
+    const result = await Swal.fire({
+      title: "Excluir esta OS?",
+      text: "Você tem certeza disso?",
       icon: "warning",
       showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Sim, deletar",
     });
-    if (res.isConfirmed) {
+
+    if (result.isConfirmed) {
       try {
         await useDeleteOs(id);
+        Swal.fire("Sucesso", "Ordem de serviço removida.", "success");
       } catch (err) {
-        Swal.fire("Erro", err.response?.data?.erro, "error");
+        Swal.fire(
+          "Acesso Negado",
+          err.response?.data?.erro || "Erro ao deletar",
+          "error"
+        );
       }
     }
   };
@@ -194,47 +362,134 @@ const TabelaOS = () => {
           <h2>Sincronizando base de dados...</h2>
         </H.TransitionOverlay>
       )}
-
-      <H.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
-        {menuAberto ? "✕" : "☰"}
-      </H.MenuToggle>
-      <H.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
-      <H.Sidebar isOpen={menuAberto}>
-        <H.MenuItem
-          active={location.pathname === "/"}
-          onClick={() => handleNavigation("/")}
-        >
-          🗂️ Painel
-        </H.MenuItem>
-        <H.MenuItem
-          active={location.pathname === "/tabela"}
-          onClick={() => handleNavigation("/tabela")}
-        >
-          📊 Tabela
-        </H.MenuItem>
-        <div
-          style={{
-            marginTop: "auto",
-            borderTop: "1px solid #1f1f23",
-            paddingTop: "15px",
-          }}
-        >
-          <p
-            style={{ color: "#71717a", fontSize: "11px", marginBottom: "8px" }}
-          >
-            LOGADO: <strong style={{ color: "#fff" }}>{user?.nome}</strong>
-          </p>
-          <H.MenuItem onClick={logout} style={{ color: "#ef4444" }}>
-            🚪 Sair
-          </H.MenuItem>
-        </div>
-      </H.Sidebar>
-
+      <MenuGlobal />
       <S.PaginaContainer>
         <S.HeaderFixo>
-          <h1 style={{ color: "transparent" }}>.</h1>
+          <div
+            style={{
+              display: "flex",
+              gap: "15px",
+              alignItems: "center",
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            <S.InputBusca
+              placeholder="Pesquisar..."
+              value={filtros.buscaGlobal}
+              onChange={(e) =>
+                setFiltros({ ...filtros, buscaGlobal: e.target.value })
+              }
+              style={{ width: "300px" }}
+            />
+            <button
+              onClick={() => setAbaFiltroAberta(!abaFiltroAberta)}
+              style={{
+                background: abaFiltroAberta ? "#3b82f6" : "#18181b",
+                color: "#fff",
+                border: "1px solid #27272a",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>🔍</span> Filtros
+              {Object.values(filtros)
+                .flat()
+                .filter((v) => v !== filtros.buscaGlobal && v.length > 0)
+                .length > 0 && (
+                <span
+                  style={{
+                    background: "#fff",
+                    color: "#3b82f6",
+                    borderRadius: "50%",
+                    width: "18px",
+                    height: "18px",
+                    fontSize: "11px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {
+                    Object.values(filtros)
+                      .flat()
+                      .filter((v) => v !== filtros.buscaGlobal && v.length > 0)
+                      .length
+                  }
+                </span>
+              )}
+            </button>
+            {abaFiltroAberta && (
+              <FiltroAvancado
+                opcoes={opcoes}
+                filtros={filtros}
+                toggleFiltro={toggleFiltro}
+                onClose={() => setAbaFiltroAberta(false)}
+              />
+            )}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setSeletorAberto(!seletorAberto)}
+                style={{
+                  background: "#18181b",
+                  color: "#fff",
+                  border: "1px solid #27272a",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <span>⚙️</span> Colunas
+              </button>
+              {seletorAberto && (
+                <SeletorColunas
+                  colunasVisiveis={colunasVisiveis}
+                  toggleColuna={toggleColuna}
+                  IDS_COLUNAS={IDS_COLUNAS}
+                  onClose={() => setSeletorAberto(false)}
+                />
+              )}
+            </div>
+            <button
+              style={{
+                background: "#f64e3b",
+                color: "#fff",
+                border: "1px solid #27272a",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+              onClick={handleLimparTudo}
+            >
+              Limpar tudo
+            </button>
+          </div>
+          <button
+            onClick={handleExportarExcel}
+            style={{
+              background: "#16a34a",
+              color: "#fff",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "600",
+              marginLeft: "auto",
+              marginRight: "20px",
+            }}
+          >
+            📊 Exportar
+          </button>
           <div style={{ color: "#71717a", fontSize: "14px" }}>
-            {ordens.length} Registros encontrados
+            Exibindo <strong>{ordensFiltradas.length}</strong> de{" "}
+            {ordens.length}
           </div>
         </S.HeaderFixo>
 
@@ -242,310 +497,385 @@ const TabelaOS = () => {
           <S.TabelaStyled>
             <thead>
               <S.TrHeader>
-                <S.Th style={{ width: "100px" }}>Nº OS</S.Th>
-                <S.Th style={{ width: "120px" }}>Abertura</S.Th>
-                <S.Th style={{ width: "200px" }}>Setor</S.Th>
-                <S.Th style={{ width: "180px" }}>Solicitante</S.Th>
-                <S.Th style={{ width: "180px" }}>Executor</S.Th>
-                <S.Th style={{ width: "200px" }}>Equipamento</S.Th>
-                <S.Th style={{ width: "400px" }}>Descrição</S.Th>
-                <S.Th style={{ width: "160px" }}>Status</S.Th>
-                <S.Th style={{ width: "160px" }}>Prioridade</S.Th>
-                <S.Th style={{ width: "80px" }}>Foto</S.Th>
-                <S.Th style={{ width: "120px" }}>Fechamento</S.Th>
-                <S.Th style={{ width: "200px" }}>Peças</S.Th>
-                <S.Th style={{ width: "120px" }}>Valor R$</S.Th>
-                <S.Th style={{ width: "80px" }}>F. Final</S.Th>
-                <S.Th style={{ width: "250px" }}>Obs. Técnica</S.Th>
-                <S.Th style={{ width: "80px" }}>Ações</S.Th>
+                {colunasVisiveis.includes(IDS_COLUNAS.NUMERO) && (
+                  <S.Th style={{ width: "100px" }}>Nº OS</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.ABERTURA) && (
+                  <S.Th style={{ width: "120px" }}>Abertura</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.SETOR) && (
+                  <S.Th style={{ width: "200px" }}>Setor</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.SOLICITANTE) && (
+                  <S.Th style={{ width: "180px" }}>Solicitante</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.EXECUTOR) && (
+                  <S.Th style={{ width: "180px" }}>Executor</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.EQUIPAMENTO) && (
+                  <S.Th style={{ width: "200px" }}>Equipamento</S.Th>
+                )}
+                {/* LARGURA AUMENTADA PARA DESCRIÇÃO DE ABERTURA */}
+                {colunasVisiveis.includes(IDS_COLUNAS.DESCRICAO) && (
+                  <S.Th style={{ width: "450px" }}>Descrição</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.STATUS) && (
+                  <S.Th style={{ width: "160px" }}>Status</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.PRIORIDADE) && (
+                  <S.Th style={{ width: "160px" }}>Prioridade</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.FOTO_INI) && (
+                  <S.Th style={{ width: "80px" }}>Foto</S.Th>
+                )}
+                {/* LARGURA AUMENTADA PARA OBS TÉCNICA (ANDAMENTO) */}
+                {colunasVisiveis.includes(IDS_COLUNAS.OBS) && (
+                  <S.Th style={{ width: "400px" }}>
+                    Obs. Técnica (Andamento)
+                  </S.Th>
+                )}
+                {/* LARGURA AUMENTADA PARA DESCRIÇÃO DE FECHAMENTO */}
+                {colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO) && (
+                  <S.Th style={{ width: "400px" }}>Descrição Fechamento</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.FECHAMENTO) && (
+                  <S.Th style={{ width: "120px" }}>Fechamento</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.PECAS) && (
+                  <S.Th style={{ width: "200px" }}>Peças</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.VALOR) && (
+                  <S.Th style={{ width: "120px" }}>Valor R$</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.FOTO_FIM) && (
+                  <S.Th style={{ width: "80px" }}>Foto Fim</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.ACOES) && (
+                  <S.Th style={{ width: "80px" }}>Ações</S.Th>
+                )}
               </S.TrHeader>
             </thead>
             <tbody>
-              {ordens.map((os) => {
+              {ordensFiltradas.map((os) => {
                 const sStyles = getStatusStyles(os.situacao);
                 const pStyles = getPriorityStyles(os.prioridade);
                 return (
                   <tr key={os._id}>
-                    <S.Td style={{ fontWeight: "600", color: "#3b82f6" }}>
-                      #{os.numeroOS}
-                    </S.Td>
-                    <S.Td style={{ color: "#52525b" }}>
-                      {new Date(os.createdAt).toLocaleDateString()}
-                    </S.Td>
-
-                    <S.TdSelect>
-                      <div
-                        onClick={() =>
-                          setPopoverAberto({ id: os._id, field: "setor" })
-                        }
-                        style={{
-                          cursor: "pointer",
-                          padding: "8px",
-                          background: "#1f1f23",
-                          borderRadius: "4px",
-                        }}
-                      >
-                        {os.setor}
-                      </div>
-                      {popoverAberto?.id === os._id &&
-                        popoverAberto?.field === "setor" && (
-                          <SeletorGrade
-                            tipo="setor"
-                            opcoes={opcoes?.setores}
-                            valorAtual={os.setor}
-                            aoSelecionar={(v) =>
-                              handleUpdate(os._id, "setor", v)
-                            }
-                            onClose={() => setPopoverAberto(null)}
-                            acaoCriar={createSetor}
-                            acaoDeletar={deleteSetor}
-                          />
-                        )}
-                    </S.TdSelect>
-
-                    <S.TdSelect>
-                      <div
-                        onClick={() =>
-                          setPopoverAberto({ id: os._id, field: "solicitante" })
-                        }
-                        style={{
-                          cursor: "pointer",
-                          padding: "6px",
-                          background: "rgba(59, 130, 246, 0.1)",
-                          color: "#3b82f6",
-                          borderRadius: "4px",
-                        }}
-                      >
-                        {os.solicitante}
-                      </div>
-                      {popoverAberto?.id === os._id &&
-                        popoverAberto?.field === "solicitante" && (
-                          <SeletorGrade
-                            tipo="solicitante"
-                            opcoes={opcoes?.solicitantes}
-                            valorAtual={os.solicitante}
-                            aoSelecionar={(v) =>
-                              handleUpdate(os._id, "solicitante", v)
-                            }
-                            onClose={() => setPopoverAberto(null)}
-                            acaoCriarUsuario={() => {
-                              setUsuarioParaEditar(null);
-                              setDadosUsuario({
-                                nome: "",
-                                email: "",
-                                password: "",
-                                funcoes: [],
-                              });
-                              setModalUsuarioAberto(true);
-                            }}
-                            acaoEditarUsuario={(nome) => prepararEdicao(nome)}
-                          />
-                        )}
-                    </S.TdSelect>
-
-                    <S.TdSelect>
-                      <div
-                        onClick={() =>
-                          setPopoverAberto({ id: os._id, field: "executor" })
-                        }
-                        style={{
-                          cursor: "pointer",
-                          padding: "6px",
-                          background: os.executor
-                            ? "rgba(16, 185, 129, 0.1)"
-                            : "#18181b",
-                          color: os.executor ? "#10b981" : "#71717a",
-                          borderRadius: "4px",
-                        }}
-                      >
-                        {os.executor || "Não Atribuído"}
-                      </div>
-                      {popoverAberto?.id === os._id &&
-                        popoverAberto?.field === "executor" && (
-                          <SeletorGrade
-                            tipo="executor"
-                            opcoes={opcoes?.executores}
-                            valorAtual={os.executor}
-                            aoSelecionar={(v) =>
-                              handleUpdate(os._id, "executor", v)
-                            }
-                            onClose={() => setPopoverAberto(null)}
-                            acaoCriarUsuario={() => {
-                              setUsuarioParaEditar(null);
-                              setDadosUsuario({
-                                nome: "",
-                                email: "",
-                                password: "",
-                                funcoes: [],
-                              });
-                              setModalUsuarioAberto(true);
-                            }}
-                            acaoEditarUsuario={(nome) => prepararEdicao(nome)}
-                          />
-                        )}
-                    </S.TdSelect>
-
-                    <S.TdTexto>
-                      <S.EditableTextarea
-                        defaultValue={os.equipamento}
-                        onBlur={(e) =>
-                          handleUpdate(os._id, "equipamento", e.target.value)
-                        }
-                      />
-                    </S.TdTexto>
-                    <S.TdTexto>
-                      <S.EditableTextarea
-                        defaultValue={os.descricaoAbertura}
-                        onBlur={(e) =>
-                          handleUpdate(
-                            os._id,
-                            "descricaoAbertura",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </S.TdTexto>
-
-                    <S.TdSelect>
-                      <div
-                        onClick={() =>
-                          setPopoverAberto({ id: os._id, field: "situacao" })
-                        }
-                        style={{
-                          cursor: "pointer",
-                          padding: "6px",
-                          background: sStyles.bg,
-                          color: sStyles.text,
-                          borderRadius: "4px",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {os.situacao}
-                      </div>
-                      {popoverAberto?.id === os._id &&
-                        popoverAberto?.field === "situacao" && (
-                          <SeletorGrade
-                            opcoes={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
-                            valorAtual={os.situacao}
-                            aoSelecionar={(v) =>
-                              handleUpdate(os._id, "situacao", v)
-                            }
-                            onClose={() => setPopoverAberto(null)}
-                          />
-                        )}
-                    </S.TdSelect>
-
-                    <S.TdSelect>
-                      <div
-                        onClick={() =>
-                          setPopoverAberto({ id: os._id, field: "prioridade" })
-                        }
-                        style={{
-                          cursor: "pointer",
-                          padding: "6px",
-                          background: pStyles.bg,
-                          color: pStyles.text,
-                          borderRadius: "4px",
-                        }}
-                      >
-                        {os.prioridade?.split(" ")[0]}
-                      </div>
-                      {popoverAberto?.id === os._id &&
-                        popoverAberto?.field === "prioridade" && (
-                          <SeletorGrade
-                            opcoes={[
-                              "Normal (Sequência de execução)",
-                              "Alta (No decorrer do dia)",
-                              "Emergencia (Atendimento Imediato)",
-                            ]}
-                            valorAtual={os.prioridade}
-                            aoSelecionar={(v) =>
-                              handleUpdate(os._id, "prioridade", v)
-                            }
-                            onClose={() => setPopoverAberto(null)}
-                          />
-                        )}
-                    </S.TdSelect>
-
-                    <S.Td>
-                      <S.FotoWrapper>
-                        {os.arquivoAbertura ? (
-                          <a
-                            href={os.arquivoAbertura}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <S.FotoThumbnail>
-                              <img
-                                src={`${os.arquivoAbertura}?t=${new Date(
-                                  os.createdAt
-                                ).getTime()}`}
-                                alt="Foto"
-                              />
-                            </S.FotoThumbnail>
-                          </a>
-                        ) : (
-                          <S.FotoThumbnail className="vazio" />
-                        )}
-                      </S.FotoWrapper>
-                    </S.Td>
-                    <S.Td>
-                      {os.dataFechamento
-                        ? new Date(os.dataFechamento).toLocaleDateString()
-                        : "-"}
-                    </S.Td>
-                    <S.TdTexto>
-                      <S.EditableTextarea
-                        defaultValue={os.pecasUtilizadas}
-                        onBlur={(e) =>
-                          handleUpdate(
-                            os._id,
-                            "pecasUtilizadas",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </S.TdTexto>
-                    <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
-                    <S.Td>
-                      <S.FotoWrapper>
-                        {os.arquivoFechamento ? (
-                          <a
-                            href={os.arquivoFechamento}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <S.FotoThumbnail>
-                              <img
-                                src={`${os.arquivoFechamento}?t=${new Date(
-                                  os.updatedAt
-                                ).getTime()}`}
-                                alt="Foto"
-                              />
-                            </S.FotoThumbnail>
-                          </a>
-                        ) : (
-                          <S.FotoThumbnail className="vazio" />
-                        )}
-                      </S.FotoWrapper>
-                    </S.Td>
-                    <S.TdTexto>
-                      <S.EditableTextarea
-                        defaultValue={os.descricaoFechamento}
-                        onBlur={(e) =>
-                          handleUpdate(
-                            os._id,
-                            "descricaoFechamento",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </S.TdTexto>
-                    <S.Td>
-                      <S.ActionButton onClick={() => handleDelete(os._id)}>
-                        ❌
-                      </S.ActionButton>
-                    </S.Td>
+                    {colunasVisiveis.includes(IDS_COLUNAS.NUMERO) && (
+                      <S.Td style={{ fontWeight: "600", color: "#3b82f6" }}>
+                        #{os.numeroOS}
+                      </S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.ABERTURA) && (
+                      <S.Td style={{ color: "#52525b" }}>
+                        {new Date(os.createdAt).toLocaleDateString()}
+                      </S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.SETOR) && (
+                      <S.TdSelect>
+                        <div
+                          onClick={() =>
+                            setPopoverAberto({ id: os._id, field: "setor" })
+                          }
+                          style={{
+                            cursor: "pointer",
+                            padding: "8px",
+                            background: "#1f1f23",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {os.setor}
+                        </div>
+                        {popoverAberto?.id === os._id &&
+                          popoverAberto?.field === "setor" && (
+                            <SeletorGrade
+                              tipo="setor"
+                              opcoes={opcoes?.setores}
+                              valorAtual={os.setor}
+                              aoSelecionar={(v) =>
+                                handleUpdate(os._id, "setor", v)
+                              }
+                              onClose={() => setPopoverAberto(null)}
+                              acaoCriar={createSetor}
+                              acaoDeletar={deleteSetor}
+                            />
+                          )}
+                      </S.TdSelect>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.SOLICITANTE) && (
+                      <S.TdSelect>
+                        <div
+                          onClick={() =>
+                            setPopoverAberto({
+                              id: os._id,
+                              field: "solicitante",
+                            })
+                          }
+                          style={{
+                            cursor: "pointer",
+                            padding: "6px",
+                            background: "rgba(59, 130, 246, 0.1)",
+                            color: "#3b82f6",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {os.solicitante}
+                        </div>
+                        {popoverAberto?.id === os._id &&
+                          popoverAberto?.field === "solicitante" && (
+                            <SeletorGrade
+                              tipo="solicitante"
+                              opcoes={opcoes?.solicitantes}
+                              valorAtual={os.solicitante}
+                              aoSelecionar={(v) =>
+                                handleUpdate(os._id, "solicitante", v)
+                              }
+                              onClose={() => setPopoverAberto(null)}
+                              acaoCriarUsuario={() => {
+                                setModalUsuarioAberto(true);
+                                setUsuarioParaEditar(null);
+                              }}
+                              acaoEditarUsuario={prepararEdicao}
+                            />
+                          )}
+                      </S.TdSelect>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.EXECUTOR) && (
+                      <S.TdSelect>
+                        <div
+                          onClick={() =>
+                            setPopoverAberto({ id: os._id, field: "executor" })
+                          }
+                          style={{
+                            cursor: "pointer",
+                            padding: "6px",
+                            background: os.executor
+                              ? "rgba(16, 185, 129, 0.1)"
+                              : "#18181b",
+                            color: os.executor ? "#10b981" : "#71717a",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {os.executor || "Não Atribuído"}
+                        </div>
+                        {popoverAberto?.id === os._id &&
+                          popoverAberto?.field === "executor" && (
+                            <SeletorGrade
+                              tipo="executor"
+                              opcoes={opcoes?.executores}
+                              valorAtual={os.executor}
+                              aoSelecionar={(v) =>
+                                handleUpdate(os._id, "executor", v)
+                              }
+                              onClose={() => setPopoverAberto(null)}
+                              acaoCriarUsuario={() => {
+                                setModalUsuarioAberto(true);
+                                setUsuarioParaEditar(null);
+                              }}
+                              acaoEditarUsuario={prepararEdicao}
+                            />
+                          )}
+                      </S.TdSelect>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.EQUIPAMENTO) && (
+                      <S.TdTexto>
+                        <S.EditableTextarea
+                          defaultValue={os.equipamento}
+                          onBlur={(e) =>
+                            handleUpdate(os._id, "equipamento", e.target.value)
+                          }
+                        />
+                      </S.TdTexto>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.DESCRICAO) && (
+                      <S.TdTexto>
+                        <S.EditableTextarea
+                          defaultValue={os.descricaoAbertura}
+                          onBlur={(e) =>
+                            handleUpdate(
+                              os._id,
+                              "descricaoAbertura",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </S.TdTexto>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.STATUS) && (
+                      <S.TdSelect>
+                        <div
+                          onClick={() =>
+                            setPopoverAberto({ id: os._id, field: "situacao" })
+                          }
+                          style={{
+                            cursor: "pointer",
+                            padding: "6px",
+                            background: sStyles.bg,
+                            color: sStyles.text,
+                            borderRadius: "4px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {os.situacao}
+                        </div>
+                        {popoverAberto?.id === os._id &&
+                          popoverAberto?.field === "situacao" && (
+                            <SeletorGrade
+                              opcoes={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
+                              valorAtual={os.situacao}
+                              aoSelecionar={(v) =>
+                                handleUpdate(os._id, "situacao", v)
+                              }
+                              onClose={() => setPopoverAberto(null)}
+                            />
+                          )}
+                      </S.TdSelect>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.PRIORIDADE) && (
+                      <S.TdSelect>
+                        <div
+                          onClick={() =>
+                            setPopoverAberto({
+                              id: os._id,
+                              field: "prioridade",
+                            })
+                          }
+                          style={{
+                            cursor: "pointer",
+                            padding: "6px",
+                            background: pStyles.bg,
+                            color: pStyles.text,
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {os.prioridade?.split(" ")[0]}
+                        </div>
+                        {popoverAberto?.id === os._id &&
+                          popoverAberto?.field === "prioridade" && (
+                            <SeletorGrade
+                              opcoes={[
+                                "Normal (Sequência de execução)",
+                                "Alta (No decorrer do dia)",
+                                "Emergencia (Atendimento Imediato)",
+                              ]}
+                              valorAtual={os.prioridade}
+                              aoSelecionar={(v) =>
+                                handleUpdate(os._id, "prioridade", v)
+                              }
+                              onClose={() => setPopoverAberto(null)}
+                            />
+                          )}
+                      </S.TdSelect>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.FOTO_INI) && (
+                      <S.Td>
+                        <S.FotoWrapper>
+                          {os.arquivoAbertura ? (
+                            <a
+                              href={os.arquivoAbertura}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <S.FotoThumbnail>
+                                <img
+                                  src={`${os.arquivoAbertura}?t=${new Date(
+                                    os.createdAt
+                                  ).getTime()}`}
+                                  alt="Foto"
+                                />
+                              </S.FotoThumbnail>
+                            </a>
+                          ) : (
+                            <S.FotoThumbnail className="vazio" />
+                          )}
+                        </S.FotoWrapper>
+                      </S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.OBS) && (
+                      <S.TdTexto>
+                        <S.EditableTextarea
+                          placeholder="Andamento..."
+                          defaultValue={os.descricaoProcesso || ""}
+                          onBlur={(e) =>
+                            handleUpdate(
+                              os._id,
+                              "descricaoProcesso",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </S.TdTexto>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO) && (
+                      <S.TdTexto>
+                        <S.EditableTextarea
+                          placeholder="Relatório final..."
+                          defaultValue={os.descricaoFechamento || ""}
+                          onBlur={(e) =>
+                            handleUpdate(
+                              os._id,
+                              "descricaoFechamento",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </S.TdTexto>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.FECHAMENTO) && (
+                      <S.Td>
+                        {os.dataFechamento
+                          ? new Date(os.dataFechamento).toLocaleDateString()
+                          : "-"}
+                      </S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.PECAS) && (
+                      <S.TdTexto>
+                        <S.EditableTextarea
+                          defaultValue={os.pecasUtilizadas}
+                          onBlur={(e) =>
+                            handleUpdate(
+                              os._id,
+                              "pecasUtilizadas",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </S.TdTexto>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.VALOR) && (
+                      <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.FOTO_FIM) && (
+                      <S.Td>
+                        <S.FotoWrapper>
+                          {os.arquivoFechamento ? (
+                            <a
+                              href={os.arquivoFechamento}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <S.FotoThumbnail>
+                                <img
+                                  src={`${os.arquivoFechamento}?t=${new Date(
+                                    os.updatedAt
+                                  ).getTime()}`}
+                                  alt="Foto"
+                                />
+                              </S.FotoThumbnail>
+                            </a>
+                          ) : (
+                            <S.FotoThumbnail className="vazio" />
+                          )}
+                        </S.FotoWrapper>
+                      </S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.ACOES) && (
+                      <S.Td>
+                        <S.ActionButton onClick={() => handleDelete(os._id)}>
+                          ❌
+                        </S.ActionButton>
+                      </S.Td>
+                    )}
                   </tr>
                 );
               })}
@@ -554,7 +884,6 @@ const TabelaOS = () => {
         </S.TabelaWrapper>
       </S.PaginaContainer>
 
-      {/* MODAL UNIFICADO DE CRIAÇÃO/EDIÇÃO DE USUÁRIO */}
       <ModalBase
         isOpen={modalUsuarioAberto}
         onClose={() => setModalUsuarioAberto(false)}
@@ -588,7 +917,6 @@ const TabelaOS = () => {
                 border: "none",
                 cursor: "pointer",
                 marginRight: "auto",
-                fontWeight: "600",
               }}
             >
               Excluir Usuário

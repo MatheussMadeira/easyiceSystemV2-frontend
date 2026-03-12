@@ -32,15 +32,16 @@ export const MenuOverlay = styled.div`
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   z-index: 998;
-  display: ${(props) => (props.isOpen ? "block" : "none")};
+  /* Mudado para $isOpen */
+  display: ${(props) => (props.$isOpen ? "block" : "none")};
 `;
 
 export const Sidebar = styled.aside`
   position: fixed;
   top: 0;
-  left: ${(props) => (props.isOpen ? "0" : "-400px")};
+  left: ${(props) => (props.$isOpen ? "0" : "-400px")};
   height: 100vh;
-  width: 14%;
+  width: 250px;
   background: #09090b;
   border-right: 1px solid #1f1f23;
   z-index: 999;
@@ -57,8 +58,9 @@ export const MenuItem = styled.div`
   gap: 12px;
   padding: 12px 16px;
   border-radius: 8px;
-  color: ${(props) => (props.active ? "#fafafa" : "#a1a1aa")};
-  background: ${(props) => (props.active ? "#18181b" : "transparent")};
+  /* Mudado para $active */
+  color: ${(props) => (props.$active ? "#fafafa" : "#a1a1aa")};
+  background: ${(props) => (props.$active ? "#18181b" : "transparent")};
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.2s;
@@ -70,14 +72,15 @@ export const MenuItem = styled.div`
     transform: translateX(4px);
   }
 `;
+
 export const LogoutWrapper = styled.div`
   margin-top: auto;
+  padding-bottom: 10%;
   padding: 20px 0;
   border-top: 1px solid #1f1f23;
   display: flex;
   flex-direction: column;
   gap: 12px;
-
   p {
     color: #71717a;
     font-size: 11px;
@@ -113,6 +116,7 @@ export const LogoutWrapper = styled.div`
     }
   }
 `;
+
 export const TransitionOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -134,6 +138,7 @@ export const TransitionOverlay = styled.div`
     font-weight: 500;
   }
 `;
+
 export const Spinner = styled.div`
   width: 32px;
   height: 32px;

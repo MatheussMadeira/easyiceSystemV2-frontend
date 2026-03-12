@@ -39,7 +39,7 @@ export const TabelaWrapper = styled.div`
 
 export const TabelaStyled = styled.table`
   width: 100%;
-  min-width: 2400px;
+  min-width: 4000px;
   border-collapse: collapse;
   background: #09090b;
 `;
@@ -173,5 +173,35 @@ export const FotoThumbnail = styled.div`
       transform: none;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
+  }
+`;
+export const InputBusca = styled.input`
+  background: #18181b;
+  width: 15%;
+  border: 1px solid #27272a;
+  padding: 10px 15px;
+  margin-left: 50px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  &:focus {
+    border-color: #3b82f6;
+  }
+`;
+export const FiltroChip = styled.div`
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid ${(props) => (props.$active ? "#3b82f6" : "#27272a")};
+  background: ${(props) =>
+    props.$active ? "rgba(59, 130, 246, 0.2)" : "transparent"};
+  color: ${(props) => (props.$active ? "#3b82f6" : "#a1a1aa")};
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
   }
 `;

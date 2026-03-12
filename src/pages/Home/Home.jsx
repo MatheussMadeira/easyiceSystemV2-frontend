@@ -4,10 +4,10 @@ import { useOS } from "../../hooks/useOS";
 import { useAuth } from "../../hooks/useAuth";
 import ModalBase from "../../components/Modal/ModalBase";
 import ModalExecutor from "../../components/ModalExecutor/ModalExecutor";
-import ModalLogin from "../Login/Login";
 import * as S from "./styles";
 import * as M from "../../components/MenuHamburguer/menu";
 import Swal from "sweetalert2";
+import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -64,9 +64,25 @@ export default function Home() {
   };
 
   const handleCriar = async () => {
+    const nomeUsuarioLogado = user?.nome?.toUpperCase().trim();
+    const isAdmin = user?.funcoes?.includes("ADMIN");
+    const solicitanteSelecionado = dadosModal.solicitante?.toUpperCase().trim();
+
+    // REGRA NOVO: Solicitante só cria para si mesmo (ADMIN ignora)
+    if (!isAdmin && solicitanteSelecionado !== nomeUsuarioLogado) {
+      return Swal.fire({
+        title: "Ação Inválida",
+        text: `Você só pode abrir ordens de serviço em seu próprio nome (${user?.nome}).`,
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
+    }
+
+    // Validação de campos obrigatórios que você já tinha
     const obrigatorios = fieldsAbertura
       .filter((f) => f.type !== "file")
       .map((f) => f.name);
+
     const faltantes = obrigatorios.filter(
       (campo) =>
         !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
@@ -87,6 +103,7 @@ export default function Home() {
       Object.keys(dadosModal).forEach((key) =>
         formData.append(key, dadosModal[key])
       );
+
       const novaOSDoBanco = await useCreateOs(formData);
       setModalAberto(false);
       setDadosModal({});
@@ -102,26 +119,45 @@ export default function Home() {
         confirmButtonText: "Enviar WhatsApp",
       }).then((result) => {
         if (result.isConfirmed)
-          window.open(
-            gerarMensagemWhatsApp(novaOSDoBanco, "abertura"),
-            "_blank"
-          );
+          window.open(gerarMensagemWhatsApp(novaOSDoBanco), "_blank");
       });
     } catch (err) {
-      // CAPTURA DE ERRO CUSTOMIZADA
-      const mensagemAmigavel =
-        err.response?.data?.erro || "Não foi possível abrir a OS.";
-
-      Swal.fire({
-        title: "Ação Não Permitida",
-        text: mensagemAmigavel,
-        icon: "error",
-        confirmButtonColor: "#3b82f6",
-      });
+      const msg = err.response?.data?.erro || "Não foi possível abrir a OS.";
+      Swal.fire({ title: "Erro", text: msg, icon: "error" });
     }
   };
 
   const handleAtualizarStatus = async () => {
+    const novaSituacao = dadosModal.situacao;
+    const nomeUsuarioLogado = user?.nome?.toUpperCase().trim();
+    const nomeExecutorOS = osAtual.executor?.toUpperCase().trim();
+    const nomeSolicitanteOS = osAtual.solicitante?.toUpperCase().trim();
+    const isAdmin = user?.funcoes?.includes("ADMIN"); // Verificação de Admin
+
+    // REGRA 1: "EM PROCESSO" -> Apenas o Executor ou ADMIN
+    if (novaSituacao === "EM PROCESSO" && !isAdmin) {
+      if (nomeUsuarioLogado !== nomeExecutorOS) {
+        return Swal.fire({
+          title: "Acesso Negado",
+          text: `Apenas o técnico responsável (${osAtual.executor}) pode iniciar esta OS.`,
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
+      }
+    }
+
+    // REGRA 2: "CONCLUÍDO" -> Apenas o Solicitante ou ADMIN
+    if (novaSituacao === "CONCLUÍDO" && !isAdmin) {
+      if (nomeUsuarioLogado !== nomeSolicitanteOS) {
+        return Swal.fire({
+          title: "Acesso Negado",
+          text: `Apenas o solicitante original (${osAtual.solicitante}) pode finalizar esta OS.`,
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
+      }
+    }
+
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
@@ -129,53 +165,62 @@ export default function Home() {
       );
 
       const numeroDaOS = osAtual.numeroOS;
-      const situacaoFinal = dadosModal.situacao;
-
-      await useUpdateOs(osAtual._id, formData);
+      // Atualiza no banco
+      const osAtualizada = await useUpdateOs(osAtual._id, formData);
 
       setModalFechamentoAberto(false);
-      setDadosModal({});
       setNumeroOSParaBuscar("");
 
-      if (situacaoFinal === "CONCLUÍDO") {
-        const mensagemWpp = encodeURIComponent(
-          `✅ *OS #${numeroDaOS} Finalizada*\n\nO técnico concluiu o serviço solicitado.\n*Status:* Concluído\n*Data:* ${new Date().toLocaleDateString()}`
-        );
+      if (novaSituacao === "CONCLUÍDO") {
+        const textoWpp =
+          `✅ *ORDEM DE SERVIÇO FINALIZADA - #${numeroDaOS}* ✅\n\n` +
+          `⚙️ *EQUIPAMENTO:* ${osAtual.equipamento}\n` +
+          `----------------------------------\n` +
+          `🛠️ *EXECUTOR:* ${osAtual.executor}\n` +
+          `👤 *SOLICITANTE:* ${osAtual.solicitante}\n` +
+          `📦 *PEÇAS UTILIZADAS:* ${
+            dadosModal.pecasUtilizadas || "Nenhuma"
+          }\n\n` +
+          `📝 *RELATÓRIO TÉCNICO:* \n${
+            dadosModal.descricaoFechamento ||
+            "Serviço concluído conforme solicitado."
+          }\n` +
+          `----------------------------------` +
+          (osAtualizada.arquivoFechamento
+            ? `\n🖼️ *Link da Foto:* ${osAtualizada.arquivoFechamento}`
+            : "") +
+          `\n\n📅 *FINALIZADA EM:* ${new Date().toLocaleDateString()} às ${new Date().toLocaleTimeString(
+            [],
+            { hour: "2-digit", minute: "2-digit" }
+          )}`;
 
         Swal.fire({
           title: "Finalizada!",
-          text: `OS #${numeroDaOS} finalizada com sucesso.`,
+          text: `OS #${numeroDaOS} concluída.`,
           icon: "success",
           showCancelButton: true,
           confirmButtonText: "📱 Avisar no WhatsApp",
-          cancelButtonText: "Fechar",
           confirmButtonColor: "#25D366",
         }).then((result) => {
-          if (result.isConfirmed) {
-            window.open(`https://wa.me/?text=${mensagemWpp}`, "_blank");
-          }
+          if (result.isConfirmed)
+            window.open(
+              `https://wa.me/?text=${encodeURIComponent(textoWpp)}`,
+              "_blank"
+            );
+          setDadosModal({});
         });
       } else {
-        Swal.fire(
-          "Atualizado!",
-          `A OS foi movida para: ${situacaoFinal}`,
-          "success"
-        );
+        Swal.fire("Atualizado!", `Status: ${novaSituacao}`, "success");
+        setDadosModal({});
       }
     } catch (err) {
-      // CAPTURA DE ERRO CUSTOMIZADA
-      const mensagemAmigavel =
-        err.response?.data?.erro || "Erro ao atualizar status da OS.";
-
-      Swal.fire({
-        title: "Acesso Negado",
-        text: mensagemAmigavel,
-        icon: "error",
-        confirmButtonColor: "#3b82f6",
-      });
+      Swal.fire(
+        "Erro",
+        err.response?.data?.erro || "Erro ao atualizar.",
+        "error"
+      );
     }
   };
-
   // --- LÓGICA DE DETALHES AO CLICAR NO RANKING ---
   function abrirDetalhes(nome, tipo) {
     const filtradas = ordens.filter(
@@ -224,7 +269,6 @@ export default function Home() {
   const rankingSolicitantes = calcularRanking("solicitante");
   const rankingExecutores = calcularRanking("executor");
 
-  // --- CONFIGURAÇÃO DE CAMPOS USANDO DADOS DO BANCO ---
   const fieldsAbertura = [
     {
       name: "setor",
@@ -295,8 +339,31 @@ export default function Home() {
       : []),
   ];
 
-  const gerarMensagemWhatsApp = (os, tipo) => {
-    const texto = `*OS #${os.numeroOS}* ❄️\n📍 Setor: ${os.setor}\n⚙️ Equip: ${os.equipamento}\n👤 Solicitante: ${os.solicitante}\n📝 Desc: ${os.descricaoAbertura}`;
+  const gerarMensagemWhatsApp = (os) => {
+    const linkFoto = os.arquivoAbertura
+      ? `\n🖼️ *Link da Foto:* ${os.arquivoAbertura}`
+      : "\n🖼️ *Foto:* Não anexada";
+    const prioridadeCurta = os.prioridade
+      ? os.prioridade.split(" ")[0].toUpperCase()
+      : "NORMAL";
+
+    const texto =
+      `🚨 *NOVA ORDEM DE SERVIÇO - #${os.numeroOS}* 🚨\n\n` +
+      `🔥 *PRIORIDADE:* ${prioridadeCurta}\n` +
+      `----------------------------------\n` +
+      `📍 *SETOR:* ${os.setor}\n` +
+      `👤 *SOLICITANTE:* ${os.solicitante}\n` +
+      `🛠️ *EXECUTOR:* ${os.executor || "A DEFINIR"}\n` +
+      `⚙️ *EQUIPAMENTO:* ${os.equipamento}\n\n` +
+      `📝 *DESCRIÇÃO DO PROBLEMA:* \n${os.descricaoAbertura}\n` +
+      `----------------------------------` +
+      linkFoto +
+      `\n\n` +
+      `📅 *DATA:* ${new Date().toLocaleDateString()} às ${new Date().toLocaleTimeString(
+        [],
+        { hour: "2-digit", minute: "2-digit" }
+      )}`;
+
     return `https://wa.me/?text=${encodeURIComponent(texto)}`;
   };
 
@@ -308,22 +375,7 @@ export default function Home() {
           <h2>Sincronizando base de dados...</h2>
         </M.TransitionOverlay>
       )}
-
-      <M.MenuToggle onClick={() => setMenuAberto(!menuAberto)}>
-        {menuAberto ? "✕" : "☰"}
-      </M.MenuToggle>
-
-      <M.MenuOverlay isOpen={menuAberto} onClick={() => setMenuAberto(false)} />
-
-      <M.Sidebar isOpen={menuAberto}>
-        <M.MenuItem active onClick={() => handleNavigation("/")}>
-          🗂️ Painel
-        </M.MenuItem>
-        <M.MenuItem onClick={() => handleNavigation("/tabela")}>
-          📊 Tabela
-        </M.MenuItem>
-        <M.MenuItem onClick={logout}>❌ Logout</M.MenuItem>
-      </M.Sidebar>
+      <MenuGlobal />
 
       <S.HomeContainer>
         {/* CARDS DE AÇÃO */}

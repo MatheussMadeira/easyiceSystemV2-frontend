@@ -7,11 +7,13 @@ import {
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useAuth } from "./hooks/useAuth"; // Importamos o hook aqui
+import { useAuth } from "./hooks/useAuth";
 
 import Home from "./pages/Home/Home";
 import Login from "./pages/Login/Login";
 import TabelaOS from "./pages/Table/TabelaOS";
+import Dashboard from "./pages/Dashboard/Dashboard";
+import Perfil from "./pages/Perfil/Perfil";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,7 +42,7 @@ function App() {
             element={<Login onLogin={login} isLoading={loadingAuth} />}
           />
 
-          {/* ROTAS PROTEGIDAS (Só entra se estiver logado) */}
+          {/* ROTAS PROTEGIDAS */}
           <Route
             path="/"
             element={
@@ -58,7 +60,25 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route
+            path="/perfil"
+            element={
+              <PrivateRoute>
+                <Perfil />
+              </PrivateRoute>
+            }
+          />
+          {/* NOVA ROTA DE DASHBOARD */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </Router>
 
