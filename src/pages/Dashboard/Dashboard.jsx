@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../services/api";
 import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
@@ -16,9 +16,18 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { ClipboardList, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import {
+  ClipboardList,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Zap,
+} from "lucide-react";
 
 const DashboardOS = () => {
+  // Estado para o limite dinâmico (inicia em 100)
+  const [limite, setLimite] = useState(100);
+
   const { data: ordens = [], isLoading } = useQuery({
     queryKey: ["ordens"],
     queryFn: async () => {
@@ -28,16 +37,25 @@ const DashboardOS = () => {
   });
 
   const stats = useMemo(() => {
-    // Função para limpar e agrupar nomes (Ex: "Alta" e "ALTA" viram a mesma coisa)
+    // Tratamento para o limite (não deixar ser menor que 1)
+    const qtdParaFiltrar = limite > 0 ? limite : 1;
+
+    // Filtra as últimas OS baseada no input do usuário
+    const ultimasOrdens = [...ordens]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, qtdParaFiltrar);
+
     const normalizarPalavra = (txt) =>
       txt ? txt.toString().toUpperCase().trim() : "OUTROS";
 
-    const total = ordens.length;
-    const concluidas = ordens.filter(
+    const total = ultimasOrdens.length;
+    const concluidas = ultimasOrdens.filter(
       (os) => os.situacao === "CONCLUÍDO"
     ).length;
-    const emAberto = ordens.filter((os) => os.situacao === "EM ABERTO").length;
-    const emProcesso = ordens.filter(
+    const emAberto = ultimasOrdens.filter(
+      (os) => os.situacao === "EM ABERTO"
+    ).length;
+    const emProcesso = ultimasOrdens.filter(
       (os) => os.situacao === "EM PROCESSO"
     ).length;
 
@@ -48,8 +66,8 @@ const DashboardOS = () => {
       { name: "Em Processo", value: emProcesso, color: "#3b82f6" },
     ];
 
-    // 2. Prioridade (AGRUPADO PARA NÃO REPETIR)
-    const prioridadeMap = ordens.reduce((acc, os) => {
+    // 2. Prioridade
+    const prioridadeMap = ultimasOrdens.reduce((acc, os) => {
       const prio = normalizarPalavra(os.prioridade?.split(" ")[0]);
       acc[prio] = (acc[prio] || 0) + 1;
       return acc;
@@ -64,8 +82,8 @@ const DashboardOS = () => {
       }))
       .sort((a, b) => b.quantidade - a.quantidade);
 
-    // 3. Executores (Top 5)
-    const executoresMap = ordens.reduce((acc, os) => {
+    // 3. Executores (Top 5 das OS concluídas dentro da amostra)
+    const executoresMap = ultimasOrdens.reduce((acc, os) => {
       if (os.situacao === "CONCLUÍDO" && os.executor) {
         const nome = normalizarPalavra(os.executor);
         acc[nome] = (acc[nome] || 0) + 1;
@@ -75,11 +93,11 @@ const DashboardOS = () => {
 
     const rankingExecutores = Object.keys(executoresMap)
       .map((nome) => ({ nome, total: executoresMap[nome] }))
-      .sort((a, b) => b.total - a.total) // CORRIGIDO: total - total
+      .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    // 4. Solicitantes (Top 5)
-    const solicitantesMap = ordens.reduce((acc, os) => {
+    // 4. Solicitantes (Top 5 da amostra)
+    const solicitantesMap = ultimasOrdens.reduce((acc, os) => {
       const nome = normalizarPalavra(os.solicitante);
       acc[nome] = (acc[nome] || 0) + 1;
       return acc;
@@ -87,11 +105,11 @@ const DashboardOS = () => {
 
     const rankingSolicitantes = Object.keys(solicitantesMap)
       .map((nome) => ({ nome, total: solicitantesMap[nome] }))
-      .sort((a, b) => b.total - a.total) // CORRIGIDO: total - total
+      .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    // 5. Setores (Barras)
-    const setoresMap = ordens.reduce((acc, os) => {
+    // 5. Setores (Top setores da amostra)
+    const setoresMap = ultimasOrdens.reduce((acc, os) => {
       const nome = normalizarPalavra(os.setor);
       acc[nome] = (acc[nome] || 0) + 1;
       return acc;
@@ -112,7 +130,7 @@ const DashboardOS = () => {
       rankingExecutores,
       rankingSolicitantes,
     };
-  }, [ordens]);
+  }, [ordens, limite]);
 
   if (isLoading) return <S.Loading>Carregando Dashboard...</S.Loading>;
 
@@ -121,8 +139,33 @@ const DashboardOS = () => {
       <MenuGlobal />
       <S.Content>
         <S.Header>
-          <h1>Dashboard Gerencial</h1>
-          <p>Visão geral das manutenções EasyIce</p>
+          <div>
+            <h1>Dashboard Gerencial</h1>
+            <p>
+              Análise baseada nas últimas <strong>{stats.total}</strong> ordens
+              de serviço
+            </p>
+          </div>
+
+          <S.FiltroContainer>
+            <S.FiltroGroup>
+              <S.FiltroLabel>Quantidade de OS</S.FiltroLabel>
+              <S.InputWrapper>
+                <S.InputLimite
+                  type="number"
+                  min="1"
+                  max={ordens.length}
+                  value={limite}
+                  onChange={(e) => setLimite(Number(e.target.value))}
+                />
+                <span>de {ordens.length}</span>
+              </S.InputWrapper>
+            </S.FiltroGroup>
+
+            <S.BotaoTudo onClick={() => setLimite(ordens.length)}>
+              <Zap size={14} /> Ver Tudo
+            </S.BotaoTudo>
+          </S.FiltroContainer>
         </S.Header>
 
         {/* CARDS DE RESUMO */}
@@ -132,8 +175,8 @@ const DashboardOS = () => {
               <ClipboardList size={24} />
             </div>
             <div>
-              <span>Total de OS</span>
-              <h3>{stats.total}</h3>
+              <span>Amostra Analisada</span>
+              <h3>{stats.total} OS</h3>
             </div>
           </S.Card>
           <S.Card color="#10b981">
@@ -211,10 +254,8 @@ const DashboardOS = () => {
           </S.ChartBox>
         </S.GridCharts>
 
-        {/* SEÇÃO ADICIONAL: PRIORIDADE E EXECUTORES */}
-        {/* SEÇÃO ADICIONAL: PRIORIDADE À ESQUERDA E DOUBLE CARDS À DIREITA */}
+        {/* SEÇÃO ADICIONAL */}
         <S.GridChartsMetade>
-          {/* COLUNA ESQUERDA: PRIORIDADE */}
           <S.ChartBox>
             <h3>OS por Prioridade (Percentual)</h3>
             <S.PriorityList>
@@ -229,9 +270,9 @@ const DashboardOS = () => {
                       className="fill"
                       style={{
                         width: `${item.percentual}%`,
-                        backgroundColor: item.name.includes("Emergencia")
+                        backgroundColor: item.name.includes("EMERGENCIA")
                           ? "#ef4444"
-                          : item.name.includes("Alta")
+                          : item.name.includes("ALTA")
                           ? "#f59e0b"
                           : "#3b82f6",
                       }}
@@ -242,9 +283,6 @@ const DashboardOS = () => {
             </S.PriorityList>
           </S.ChartBox>
 
-          {/* COLUNA DIREITA: DOIS CARDS EMPILHADOS */}
-
-          {/* CARD TOP EXECUTORES */}
           <S.ColunaDireitaEmpilhada>
             <S.ChartBoxDouble>
               <h3>Top 5 Executores (Concluídas)</h3>
@@ -273,8 +311,6 @@ const DashboardOS = () => {
                 </tbody>
               </S.ExecutorTable>
             </S.ChartBoxDouble>
-
-            {/* CARD TOP SOLICITANTES */}
 
             <S.ChartBoxDouble>
               <h3>Top 5 Solicitantes (Aberturas)</h3>

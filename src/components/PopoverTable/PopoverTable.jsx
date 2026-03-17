@@ -9,6 +9,7 @@ const SeletorGrade = ({
   onClose,
   acaoCriarUsuario,
   acaoEditarUsuario,
+  largura,
 }) => {
   // Função para gerar as iniciais
   const getIniciais = (nome) => {
@@ -21,7 +22,7 @@ const SeletorGrade = ({
   };
 
   return (
-    <S.PopoverWrapper>
+    <S.PopoverWrapper largura={largura}>
       <S.PopoverHeader>
         <span>Selecionar {tipo}</span>
         <button onClick={onClose}>✕</button>

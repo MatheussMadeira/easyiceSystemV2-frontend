@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../services/AuthProvider";
 import * as H from "./menu";
 
 export default function MenuGlobal() {
@@ -66,6 +66,11 @@ export default function MenuGlobal() {
             onClick={() => handleNavigation("/dashboard")}
           >
             📈 Dashboard
+          </H.MenuItem>
+        )}
+        {user?.funcoes?.includes("ADMIN") && (
+          <H.MenuItem onClick={() => navigate("/usuarios")}>
+            <span>👥</span> Gerenciar Usuários
           </H.MenuItem>
         )}
         <H.MenuItem

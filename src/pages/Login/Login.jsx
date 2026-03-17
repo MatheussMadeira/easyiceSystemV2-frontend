@@ -1,26 +1,27 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Importante para o redirecionamento
 import * as S from "./styles";
+import { useAuth } from "../../services/AuthProvider"; // Importação do novo hook
 
-// Renomeado para Login para padronizar como página
-const Login = ({ onLogin, isLoading }) => {
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState("");
-  const navigate = useNavigate();
+
+  // Agora pegamos as funções e estados diretamente do Contexto
+  const { login, loadingAuth } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErro("");
 
     try {
-      // 1. Tenta realizar o login via hook useAuth
-      await onLogin(email, password);
+      // Chama a função login do Contexto
+      await login(email, password);
 
-      // 2. Se der certo, redireciona para a Home (/)
-      navigate("/");
+      // Não precisamos de navigate("/") aqui, pois o App.jsx
+      // vai detectar que 'signed' virou true e redirecionar sozinho.
     } catch (err) {
-      // Pega a mensagem de erro amigável do backend
+      // Pega a mensagem de erro do seu backend
       const mensagem =
         err.response?.data?.erro || "E-mail ou senha incorretos.";
       setErro(mensagem);
@@ -29,8 +30,6 @@ const Login = ({ onLogin, isLoading }) => {
 
   return (
     <S.LoginWrapper>
-      {" "}
-      {/* Mudamos de Overlay para Wrapper de página */}
       <S.LoginContainer>
         <S.LoginHeader>
           <h2>EasyIce System</h2>
@@ -63,8 +62,8 @@ const Login = ({ onLogin, isLoading }) => {
             />
           </S.InputGroup>
 
-          <S.BotaoEntrar type="submit" disabled={isLoading}>
-            {isLoading ? "Autenticando..." : "Entrar no Sistema"}
+          <S.BotaoEntrar type="submit" disabled={loadingAuth}>
+            {loadingAuth ? "Autenticando..." : "Entrar no Sistema"}
           </S.BotaoEntrar>
         </S.Form>
       </S.LoginContainer>
@@ -72,4 +71,4 @@ const Login = ({ onLogin, isLoading }) => {
   );
 };
 
-export default Login; // Exportando como Login
+export default Login;

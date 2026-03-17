@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useOS } from "../../hooks/useOS";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../services/AuthProvider.jsx";
 import ModalBase from "../../components/Modal/ModalBase";
 import ModalExecutor from "../../components/ModalExecutor/ModalExecutor";
 import * as S from "./styles";
 import * as M from "../../components/MenuHamburguer/menu";
 import Swal from "sweetalert2";
 import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
+import LoadingScreen from "../../components/LoadingScreen/LoadingScreen.jsx";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -20,8 +21,17 @@ export default function Home() {
     }
   }, [signed, navigate]);
   // 1. Pegamos os dados dinâmicos do hook useOS
-  const { ordens, loading, opcoes, nextNumber, useCreateOs, useUpdateOs } =
-    useOS();
+  const {
+    ordens,
+    loading,
+    opcoes,
+    nextNumber,
+    useCreateOs,
+    useUpdateOs,
+    isCreating,
+    isUpdating,
+  } = useOS();
+
   console.log("=== DEBUG OPÇÕES DO BANCO ===");
   console.log("Objeto opcoes inteiro:", opcoes);
   console.log("Solicitantes:", opcoes?.solicitantes);
@@ -64,11 +74,11 @@ export default function Home() {
   };
 
   const handleCriar = async () => {
+    if (isCreating) return;
     const nomeUsuarioLogado = user?.nome?.toUpperCase().trim();
     const isAdmin = user?.funcoes?.includes("ADMIN");
     const solicitanteSelecionado = dadosModal.solicitante?.toUpperCase().trim();
 
-    // REGRA NOVO: Solicitante só cria para si mesmo (ADMIN ignora)
     if (!isAdmin && solicitanteSelecionado !== nomeUsuarioLogado) {
       return Swal.fire({
         title: "Ação Inválida",
@@ -128,6 +138,7 @@ export default function Home() {
   };
 
   const handleAtualizarStatus = async () => {
+    if (isUpdating) return;
     const novaSituacao = dadosModal.situacao;
     const nomeUsuarioLogado = user?.nome?.toUpperCase().trim();
     const nomeExecutorOS = osAtual.executor?.toUpperCase().trim();
@@ -370,10 +381,7 @@ export default function Home() {
   return (
     <div style={{ backgroundColor: "#09090b", minHeight: "100vh" }}>
       {(isNavigating || loading) && (
-        <M.TransitionOverlay>
-          <S.Spinner />
-          <h2>Sincronizando base de dados...</h2>
-        </M.TransitionOverlay>
+        <LoadingScreen message="Sincronizando base de dados..." />
       )}
       <MenuGlobal />
 
@@ -473,7 +481,6 @@ export default function Home() {
           </S.RankingWrapper>
         </S.Card>
 
-        {/* COMPONENTES DE MODAL */}
         <ModalBase
           isOpen={modalAberto}
           onClose={() => setModalAberto(false)}
@@ -482,6 +489,7 @@ export default function Home() {
           data={dadosModal}
           setData={setDadosModal}
           onSubmit={handleCriar}
+          isLoading={isCreating}
         />
 
         <ModalBase
@@ -497,6 +505,7 @@ export default function Home() {
           data={dadosModal}
           setData={setDadosModal}
           onSubmit={handleAtualizarStatus}
+          isLoading={isUpdating}
         />
 
         <ModalExecutor

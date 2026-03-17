@@ -1,22 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api";
 
-export const useOS = () => {
+export const useOS = (filtrosAPI = {}) => {
   const queryClient = useQueryClient();
 
   // --- BUSCAS (Queries) ---
 
-  // 1. Buscar todas as OS
+  // 1. Buscar OS com filtros dinâmicos
   const { data: ordens = [], isLoading: loadingOs } = useQuery({
-    queryKey: ["ordens"],
+    queryKey: ["ordens", filtrosAPI],
     queryFn: async () => {
-      const res = await api.get("/os");
+      const res = await api.get("/os", { params: filtrosAPI });
       return res.data;
     },
+    placeholderData: (previousData) => previousData,
     refetchInterval: 15000,
   });
 
-  // 2. Buscar opções dos Selects (Setores, etc)
+  // 2. Buscar opções dos Selects
   const {
     data: opcoes = {
       setores: [],
@@ -45,7 +46,6 @@ export const useOS = () => {
 
   // --- AÇÕES (Mutations) ---
 
-  // 4. Criar nova OS
   const createMutation = useMutation({
     mutationFn: async (formData) => {
       const res = await api.post("/os", formData, {
@@ -59,7 +59,6 @@ export const useOS = () => {
     },
   });
 
-  // 5. Atualizar OS (Fechamento/Processo)
   const updateMutation = useMutation({
     mutationFn: async ({ id, formData }) => {
       const res = await api.put(`/os/${id}`, formData, {
@@ -72,7 +71,6 @@ export const useOS = () => {
     },
   });
 
-  // 6. Update Inline (Status rápido na tabela)
   const inlineMutation = useMutation({
     mutationFn: async ({ id, dados }) => {
       const res = await api.patch(`/os/${id}/inline`, dados);
@@ -83,13 +81,15 @@ export const useOS = () => {
     },
   });
 
-  // 7. Deletar OS
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       await api.delete(`/os/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens"] });
+      queryClient.invalidateQueries({ queryKey: ["nextNumber"] });
+
+      console.log("✅ Cache de ordens e numeração atualizados!");
     },
   });
 
@@ -98,6 +98,11 @@ export const useOS = () => {
     opcoes,
     nextNumber,
     loading: loadingOs || loadingOptions,
+
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isUpdatingInline: inlineMutation.isPending,
 
     useCreateOs: createMutation.mutateAsync,
     useUpdateOs: (id, formData) => updateMutation.mutateAsync({ id, formData }),

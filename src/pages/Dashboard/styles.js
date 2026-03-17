@@ -173,3 +173,89 @@ export const ExecutorTable = styled.table`
     border-bottom: none;
   }
 `;
+
+export const FiltroGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+export const FiltroLabel = styled.span`
+  color: #71717a;
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+`;
+
+export const InputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  span {
+    color: #3f3f46;
+    font-size: 13px;
+  }
+`;
+
+export const InputLimite = styled.input`
+  background: #09090b;
+  color: #3b82f6;
+  border: 1px solid #3f3f46;
+  padding: 5px 10px;
+  border-radius: 6px;
+  width: 100px;
+  font-size: 15px;
+  font-weight: bold;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.2s;
+
+  &:focus {
+    border-color: #3b82f6;
+  }
+  appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+`;
+
+export const FiltroContainer = styled.div`
+  display: flex;
+  width: 30%;
+  align-items: flex-end; /* Alterado de center para flex-end */
+  gap: 12px;
+  background: #18181b;
+  padding: 12px 15px; /* Ajuste leve no padding para equilibrar */
+  border-radius: 10px;
+  border: 1px solid #27272a;
+`;
+
+export const BotaoTudo = styled.button`
+  background: #27272a;
+  color: #fff;
+  border: none;
+  padding: 0 12px;
+  height: 32px; /* Forçamos uma altura fixa para bater com o input */
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.2s;
+  margin-bottom: 2px; /* Ajuste fino para alinhar perfeitamente com a borda do input */
+
+  &:hover {
+    background: #3f3f46;
+  }
+
+  svg {
+    fill: #f59e0b;
+    color: #f59e0b;
+  }
+`;

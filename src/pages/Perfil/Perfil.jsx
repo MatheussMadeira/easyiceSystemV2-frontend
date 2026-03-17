@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../services/AuthProvider.jsx";
 import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
 import * as S from "./styles";
 import { User, Mail, Shield, Lock, X } from "lucide-react";

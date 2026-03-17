@@ -28,12 +28,11 @@ export const TabelaWrapper = styled.div`
   overflow: auto;
   padding: 0 10px 10px 10px;
   &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 15px;
+    height: 15px;
   }
   &::-webkit-scrollbar-thumb {
-    background: #27272a;
-    border-radius: 10px;
+    background: #3f3f47;
   }
 `;
 
@@ -109,8 +108,13 @@ export const ActionButton = styled.button`
   color: #71717a;
   cursor: pointer;
   padding: 8px;
-  &:hover {
+  &:hover:not(:disabled) {
     color: #ef4444;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 `;
 
@@ -204,4 +208,16 @@ export const FiltroChip = styled.div`
   &:hover {
     background: rgba(255, 255, 255, 0.05);
   }
+`;
+export const TrCorpo = styled.tr`
+  transition: all 0.2s ease;
+
+  /* Quando a linha estiver sendo processada (deletando ou editando) */
+  ${(props) =>
+    props.$isPending &&
+    `
+    opacity: 0.4;
+    pointer-events: none; /* BLOQUEIA CLIQUES EM TUDO NESSA LINHA */
+    background-color: #121214;
+  `}
 `;

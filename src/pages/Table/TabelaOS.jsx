@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useOS } from "../../hooks/useOS";
 import { useUser } from "../../hooks/useUser";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../services/AuthProvider.jsx";
 import { useSettings } from "../../hooks/useSettings";
 import * as S from "./styles";
 import { useQuery } from "@tanstack/react-query";
@@ -19,9 +19,42 @@ import SeletorColunas from "../../components/SeletorColunas/SeletorColunas.jsx";
 const TabelaOS = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [filtros, setFiltros] = useState({
+    buscaGlobal: "",
+    numeroOS: "",
+    setor: [],
+    situacao: [],
+    prioridade: [],
+    executor: [],
+    solicitante: [],
+  });
 
-  // Hooks de Dados e Autenticação
-  const { useDeleteOs, useUpdateInline } = useOS();
+  const prepararFiltrosParaAPI = useMemo(() => {
+    const params = {};
+    Object.keys(filtros).forEach((key) => {
+      const valor = filtros[key];
+
+      // Define a chave: buscaGlobal vira 'busca', numeroOS continua 'numeroOS'
+      const queryKey = key === "buscaGlobal" ? "busca" : key;
+
+      if (Array.isArray(valor) && valor.length > 0) {
+        params[queryKey] = valor.join(",");
+      } else if (typeof valor === "string" && valor.trim() !== "") {
+        params[queryKey] = valor;
+      }
+    });
+    return params;
+  }, [filtros]);
+
+  const {
+    ordens,
+    useDeleteOs,
+    useUpdateInline,
+    isDeleting,
+    isUpdatingInline,
+    isLoading,
+  } = useOS(prepararFiltrosParaAPI);
+
   const { signed, user, logout } = useAuth();
   const { usuarios, createUser, updateUser, deleteUser } = useUser();
   const { create: createSetor, remove: deleteSetor } = useSettings("setores");
@@ -40,16 +73,20 @@ const TabelaOS = () => {
     funcoes: [],
   });
 
-  // Estados de filtro
-  const [filtros, setFiltros] = useState({
-    buscaGlobal: "",
-    setor: [],
-    situacao: [],
-    prioridade: [],
-    executor: [],
-    solicitante: [],
-  });
-
+  const handleLimparTudo = () => {
+    setFiltros({
+      buscaGlobal: "",
+      numeroOS: "",
+      setor: [],
+      situacao: [],
+      prioridade: [],
+      executor: [],
+      solicitante: [],
+    });
+    setColunasVisiveis(Object.values(IDS_COLUNAS));
+    setAbaFiltroAberta(false);
+    setSeletorAberto(false);
+  };
   const IDS_COLUNAS = {
     NUMERO: "numeroOS",
     ABERTURA: "abertura",
@@ -202,17 +239,6 @@ const TabelaOS = () => {
     Swal.fire("Sucesso", "Relatório exportado!", "success");
   };
 
-  // --- BUSCA DE DADOS (React Query) ---
-  const { data: ordens = [], isLoading } = useQuery({
-    queryKey: ["ordens"],
-    queryFn: async () => {
-      const res = await api.get("/os");
-      return res.data;
-    },
-    enabled: !!signed,
-    refetchOnWindowFocus: false,
-  });
-
   const { data: opcoes } = useQuery({
     queryKey: ["opcoes"],
     queryFn: async () => {
@@ -223,75 +249,7 @@ const TabelaOS = () => {
     staleTime: 600000,
   });
 
-  const handleLimparTudo = () => {
-    setFiltros({
-      buscaGlobal: "",
-      setor: [],
-      situacao: [],
-      prioridade: [],
-      executor: [],
-      solicitante: [],
-    });
-    setColunasVisiveis(Object.values(IDS_COLUNAS));
-    setAbaFiltroAberta(false);
-    setSeletorAberto(false);
-  };
-
-  const ordensFiltradas = useMemo(() => {
-    return ordens.filter((os) => {
-      const normalizar = (texto) => {
-        if (!texto) return "";
-        return texto
-          .toString()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase()
-          .trim();
-      };
-
-      const buscaLimpa = normalizar(filtros.buscaGlobal);
-      const regex = new RegExp(buscaLimpa, "i");
-
-      const matchBusca =
-        !buscaLimpa ||
-        regex.test(normalizar(os.numeroOS)) ||
-        regex.test(normalizar(os.equipamento)) ||
-        regex.test(normalizar(os.descricaoAbertura)) ||
-        regex.test(normalizar(os.descricaoProcesso)) || // Pesquisa no andamento
-        regex.test(normalizar(os.descricaoFechamento)) || // Pesquisa no fechamento
-        regex.test(normalizar(os.setor)) ||
-        regex.test(normalizar(os.solicitante)) ||
-        regex.test(normalizar(os.executor));
-
-      const matchSetor =
-        filtros.setor.length === 0 ||
-        filtros.setor.some((s) => normalizar(s) === normalizar(os.setor));
-      const matchSituacao =
-        filtros.situacao.length === 0 || filtros.situacao.includes(os.situacao);
-      const matchExecutor =
-        filtros.executor.length === 0 ||
-        filtros.executor.some((e) => normalizar(e) === normalizar(os.executor));
-      const matchSolicitante =
-        filtros.solicitante.length === 0 ||
-        filtros.solicitante.some(
-          (s) => normalizar(s) === normalizar(os.solicitante)
-        );
-      const matchPrioridade =
-        filtros.prioridade.length === 0 ||
-        filtros.prioridade.some(
-          (s) => normalizar(s) === normalizar(os.prioridade)
-        );
-
-      return (
-        matchBusca &&
-        matchSetor &&
-        matchSituacao &&
-        matchExecutor &&
-        matchSolicitante &&
-        matchPrioridade
-      );
-    });
-  }, [ordens, filtros]);
+  const ordensFiltradas = ordens;
 
   const toggleFiltro = (categoria, valor) => {
     setFiltros((prev) => {
@@ -304,8 +262,10 @@ const TabelaOS = () => {
   };
 
   const handleUpdate = async (id, campo, valor) => {
+    if (isUpdatingInline) return;
     try {
       await useUpdateInline(id, { [campo]: valor });
+      setPopoverAberto(null);
     } catch (err) {
       const msg = err.response?.data?.erro || "Sem permissão para alterar.";
       Swal.fire({ title: "Acesso Negado", text: msg, icon: "error" });
@@ -313,6 +273,7 @@ const TabelaOS = () => {
   };
 
   const handleDelete = async (id) => {
+    if (isDeleting) return;
     const result = await Swal.fire({
       title: "Excluir esta OS?",
       text: "Você tem certeza disso?",
@@ -353,7 +314,23 @@ const TabelaOS = () => {
       return { bg: "rgba(239, 68, 68, 0.15)", text: "#ef4444" };
     return { bg: "rgba(113, 113, 122, 0.15)", text: "#a1a1aa" };
   };
+  useEffect(() => {
+    const handleClickFora = (event) => {
+      if (event.target.closest(".seletor-container")) {
+        return;
+      }
 
+      setPopoverAberto(null);
+    };
+
+    if (popoverAberto) {
+      document.addEventListener("click", handleClickFora);
+    }
+
+    return () => {
+      document.removeEventListener("click", handleClickFora);
+    };
+  }, [popoverAberto]);
   return (
     <div style={{ backgroundColor: "#09090b", minHeight: "100vh" }}>
       {(isLoading || isNavigating) && (
@@ -429,6 +406,7 @@ const TabelaOS = () => {
                 filtros={filtros}
                 toggleFiltro={toggleFiltro}
                 onClose={() => setAbaFiltroAberta(false)}
+                setFiltros={setFiltros}
               />
             )}
             <div style={{ position: "relative" }}>
@@ -557,10 +535,11 @@ const TabelaOS = () => {
             </thead>
             <tbody>
               {ordensFiltradas.map((os) => {
+                const processando = isDeleting || isUpdatingInline;
                 const sStyles = getStatusStyles(os.situacao);
                 const pStyles = getPriorityStyles(os.prioridade);
                 return (
-                  <tr key={os._id}>
+                  <S.TrCorpo key={os._id} $isPending={processando}>
                     {colunasVisiveis.includes(IDS_COLUNAS.NUMERO) && (
                       <S.Td style={{ fontWeight: "600", color: "#3b82f6" }}>
                         #{os.numeroOS}
@@ -572,7 +551,10 @@ const TabelaOS = () => {
                       </S.Td>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.SETOR) && (
-                      <S.TdSelect>
+                      <S.TdSelect
+                        disabled={processando}
+                        className="seletor-container"
+                      >
                         <div
                           onClick={() =>
                             setPopoverAberto({ id: os._id, field: "setor" })
@@ -592,9 +574,9 @@ const TabelaOS = () => {
                               tipo="setor"
                               opcoes={opcoes?.setores}
                               valorAtual={os.setor}
-                              aoSelecionar={(v) =>
-                                handleUpdate(os._id, "setor", v)
-                              }
+                              aoSelecionar={(v) => {
+                                handleUpdate(os._id, "setor", v);
+                              }}
                               onClose={() => setPopoverAberto(null)}
                               acaoCriar={createSetor}
                               acaoDeletar={deleteSetor}
@@ -603,7 +585,10 @@ const TabelaOS = () => {
                       </S.TdSelect>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.SOLICITANTE) && (
-                      <S.TdSelect>
+                      <S.TdSelect
+                        disabled={processando}
+                        className="seletor-container"
+                      >
                         <div
                           onClick={() =>
                             setPopoverAberto({
@@ -627,9 +612,9 @@ const TabelaOS = () => {
                               tipo="solicitante"
                               opcoes={opcoes?.solicitantes}
                               valorAtual={os.solicitante}
-                              aoSelecionar={(v) =>
-                                handleUpdate(os._id, "solicitante", v)
-                              }
+                              aoSelecionar={(v) => {
+                                handleUpdate(os._id, "solicitante", v);
+                              }}
                               onClose={() => setPopoverAberto(null)}
                               acaoCriarUsuario={() => {
                                 setModalUsuarioAberto(true);
@@ -641,7 +626,10 @@ const TabelaOS = () => {
                       </S.TdSelect>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.EXECUTOR) && (
-                      <S.TdSelect>
+                      <S.TdSelect
+                        disabled={processando}
+                        className="seletor-container"
+                      >
                         <div
                           onClick={() =>
                             setPopoverAberto({ id: os._id, field: "executor" })
@@ -664,9 +652,9 @@ const TabelaOS = () => {
                               tipo="executor"
                               opcoes={opcoes?.executores}
                               valorAtual={os.executor}
-                              aoSelecionar={(v) =>
-                                handleUpdate(os._id, "executor", v)
-                              }
+                              aoSelecionar={(v) => {
+                                handleUpdate(os._id, "executor", v);
+                              }}
                               onClose={() => setPopoverAberto(null)}
                               acaoCriarUsuario={() => {
                                 setModalUsuarioAberto(true);
@@ -680,6 +668,7 @@ const TabelaOS = () => {
                     {colunasVisiveis.includes(IDS_COLUNAS.EQUIPAMENTO) && (
                       <S.TdTexto>
                         <S.EditableTextarea
+                          disabled={processando}
                           defaultValue={os.equipamento}
                           onBlur={(e) =>
                             handleUpdate(os._id, "equipamento", e.target.value)
@@ -690,6 +679,7 @@ const TabelaOS = () => {
                     {colunasVisiveis.includes(IDS_COLUNAS.DESCRICAO) && (
                       <S.TdTexto>
                         <S.EditableTextarea
+                          disabled={processando}
                           defaultValue={os.descricaoAbertura}
                           onBlur={(e) =>
                             handleUpdate(
@@ -702,7 +692,10 @@ const TabelaOS = () => {
                       </S.TdTexto>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.STATUS) && (
-                      <S.TdSelect>
+                      <S.TdSelect
+                        disabled={processando}
+                        className="seletor-container"
+                      >
                         <div
                           onClick={() =>
                             setPopoverAberto({ id: os._id, field: "situacao" })
@@ -723,16 +716,19 @@ const TabelaOS = () => {
                             <SeletorGrade
                               opcoes={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
                               valorAtual={os.situacao}
-                              aoSelecionar={(v) =>
-                                handleUpdate(os._id, "situacao", v)
-                              }
+                              aoSelecionar={(v) => {
+                                handleUpdate(os._id, "situacao", v);
+                              }}
                               onClose={() => setPopoverAberto(null)}
                             />
                           )}
                       </S.TdSelect>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.PRIORIDADE) && (
-                      <S.TdSelect>
+                      <S.TdSelect
+                        disabled={processando}
+                        className="seletor-container"
+                      >
                         <div
                           onClick={() =>
                             setPopoverAberto({
@@ -759,9 +755,9 @@ const TabelaOS = () => {
                                 "Emergencia (Atendimento Imediato)",
                               ]}
                               valorAtual={os.prioridade}
-                              aoSelecionar={(v) =>
-                                handleUpdate(os._id, "prioridade", v)
-                              }
+                              aoSelecionar={(v) => {
+                                handleUpdate(os._id, "prioridade", v);
+                              }}
                               onClose={() => setPopoverAberto(null)}
                             />
                           )}
@@ -794,6 +790,7 @@ const TabelaOS = () => {
                     {colunasVisiveis.includes(IDS_COLUNAS.OBS) && (
                       <S.TdTexto>
                         <S.EditableTextarea
+                          disabled={processando}
                           placeholder="Andamento..."
                           defaultValue={os.descricaoProcesso || ""}
                           onBlur={(e) =>
@@ -809,6 +806,7 @@ const TabelaOS = () => {
                     {colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO) && (
                       <S.TdTexto>
                         <S.EditableTextarea
+                          disabled={processando}
                           placeholder="Relatório final..."
                           defaultValue={os.descricaoFechamento || ""}
                           onBlur={(e) =>
@@ -831,6 +829,7 @@ const TabelaOS = () => {
                     {colunasVisiveis.includes(IDS_COLUNAS.PECAS) && (
                       <S.TdTexto>
                         <S.EditableTextarea
+                          disabled={processando}
                           defaultValue={os.pecasUtilizadas}
                           onBlur={(e) =>
                             handleUpdate(
@@ -871,12 +870,15 @@ const TabelaOS = () => {
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.ACOES) && (
                       <S.Td>
-                        <S.ActionButton onClick={() => handleDelete(os._id)}>
-                          ❌
+                        <S.ActionButton
+                          onClick={() => handleDelete(os._id)}
+                          disabled={processando}
+                        >
+                          {isDeleting ? "⏳" : "❌"}
                         </S.ActionButton>
                       </S.Td>
                     )}
-                  </tr>
+                  </S.TrCorpo>
                 );
               })}
             </tbody>

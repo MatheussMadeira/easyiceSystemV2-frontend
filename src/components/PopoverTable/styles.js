@@ -2,11 +2,10 @@ import styled from "styled-components";
 
 export const PopoverWrapper = styled.div`
   position: absolute;
-  min-width: 350px;
-  z-index: 1000;
+  z-index: 10000;
   background: #18181b;
   border: 1px solid #27272a;
-  width: 95%;
+  width: ${(props) => props.largura || "95%"};
   border-radius: 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
   margin-top: 8px;

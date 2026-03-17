@@ -1,11 +1,10 @@
 import styled, { css } from "styled-components";
 
-// Criamos um bloco de estilo compartilhado para garantir que todos sejam IDÊNTICOS
 const EstiloCampoBase = css`
   width: 100%;
   padding: 12px 16px;
-  background-color: #09090b !important; /* Mesma cor de fundo para todos */
-  border: 1px solid #1f1f23 !important; /* Mesma cor de borda */
+  background-color: #09090b !important;
+  border: 1px solid #1f1f23 !important;
   border-radius: 8px !important;
   font-size: 14px;
   color: #fafafa;
@@ -15,7 +14,7 @@ const EstiloCampoBase = css`
 
   &:hover {
     border-color: #27272a !important;
-    background-color: #121214 !important; /* Leve destaque no hover */
+    background-color: #121214 !important;
   }
 
   &:focus,
@@ -31,7 +30,7 @@ export const Overlay = styled.div`
   top: 0;
   left: 0;
   width: 100vw;
-  height: 1000px;
+  height: 100vh;
   background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
@@ -39,12 +38,19 @@ export const Overlay = styled.div`
   z-index: 10000;
   backdrop-filter: blur(8px);
 `;
+export const PopoverWrapper = styled.div`
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  animation: slideDownIn 0.2s ease-out;
+`;
 
 export const ModalContainer = styled.div`
   background: #09090b;
   width: 90%;
   max-width: 500px;
-  max-height: 85vh;
+  max-height: 70vh;
   border-radius: 12px;
   border: 1px solid #1f1f23;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -150,7 +156,6 @@ export const InputGroup = styled.div`
   }
 `;
 
-// AGORA O SELETOR TRIGGER USA O MESMO ESTILO BASE DOS INPUTS
 export const SeletorTrigger = styled.button`
   ${EstiloCampoBase}
   display: flex;
@@ -199,6 +204,14 @@ export const BotaoCancelar = styled.button`
     background: #121214;
     color: #fafafa;
   }
+  &:disabled {
+    background-color: #27272a !important;
+    color: #71717a !important;
+    cursor: not-allowed;
+    opacity: 1;
+    transform: none;
+    border: 1px solid #3f3f46;
+  }
 `;
 
 export const BotaoConfirmar = styled.button`
@@ -211,6 +224,14 @@ export const BotaoConfirmar = styled.button`
   font-weight: 600;
   &:hover {
     opacity: 0.9;
+  }
+  &:disabled {
+    background-color: #27272a !important;
+    color: #71717a !important;
+    cursor: not-allowed;
+    opacity: 1;
+    transform: none;
+    border: 1px solid #3f3f46;
   }
 `;
 
