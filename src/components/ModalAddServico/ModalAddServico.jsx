@@ -1,13 +1,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import * as S from "./styles";
-import { X, Calendar, Search, Edit3 } from "lucide-react"; 
+import { X, Calendar, Search, Edit3 } from "lucide-react";
 import { useServico } from "../../hooks/useServico";
 import SeletorGrade from "../PopoverTable/PopoverTable";
+import { useOS } from "../../hooks/useOS";
 
 const ModalAdicionarServico = ({ isOpen, onClose, opcoes }) => {
-  const { createServico, updateServico, fetchServicos, servicos, loading } =
-    useServico();
+  const {
+    createServico,
+    updateServico,
+    fetchServicos,
+    servicos,
+    loading,
+    fetchLogs,
+  } = useServico();
   const [formData, setFormData] = useState({
     nome: "",
     descricao: "",
@@ -15,9 +22,13 @@ const ModalAdicionarServico = ({ isOpen, onClose, opcoes }) => {
     executorPadrao: "",
     periodicidadeDias: 15,
   });
+  const { opcoesFiltros, fetchFiltros } = useOS();
+
   useEffect(() => {
     fetchServicos();
-  }, [fetchServicos]);
+    fetchLogs();
+    fetchFiltros;
+  }, [fetchServicos, fetchLogs, fetchFiltros]);
 
   const [editandoId, setEditandoId] = useState(null);
   const [campoAberto, setCampoAberto] = useState(null);
@@ -88,7 +99,6 @@ const ModalAdicionarServico = ({ isOpen, onClose, opcoes }) => {
   };
 
   const sugestoesDias = ["7", "15", "30", "60", "90", "180", "365"];
-
   return (
     <S.Overlay onClick={loading ? null : onClose}>
       <S.ModalContainer onClick={(e) => e.stopPropagation()}>
@@ -251,8 +261,8 @@ const ModalAdicionarServico = ({ isOpen, onClose, opcoes }) => {
               {loading
                 ? "Salvando..."
                 : editandoId
-                ? "Salvar Alterações"
-                : "Confirmar Criação"}
+                  ? "Salvar Alterações"
+                  : "Confirmar Criação"}
             </button>
           </S.Footer>
         </S.Form>
@@ -273,10 +283,12 @@ const ModalAdicionarServico = ({ isOpen, onClose, opcoes }) => {
                   campoAberto === "buscaServico"
                     ? servicos?.map((s) => s.nome) || []
                     : campoAberto === "periodicidadeDias"
-                    ? sugestoesDias
-                    : campoAberto === "setor"
-                    ? opcoes?.setores || []
-                    : opcoes?.executores || []
+                      ? sugestoesDias
+                      : campoAberto === "setor"
+                        ? opcoes?.setores || []
+                        : (opcoes?.executores || [])?.map((e) =>
+                            typeof e === "object" ? e.nome : e,
+                          )
                 }
                 valorAtual={
                   campoAberto === "buscaServico" ? "" : formData[campoAberto]
@@ -296,7 +308,7 @@ const ModalAdicionarServico = ({ isOpen, onClose, opcoes }) => {
                 onClose={() => setCampoAberto(null)}
               />
             </S.PopoverWrapper>,
-            document.body
+            document.body,
           )}
       </S.ModalContainer>
     </S.Overlay>

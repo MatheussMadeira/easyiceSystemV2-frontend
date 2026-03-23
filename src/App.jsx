@@ -15,7 +15,6 @@ import Login from "./pages/Login/Login";
 import TabelaOS from "./pages/Table/TabelaOS";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Perfil from "./pages/Perfil/Perfil";
-import Logs from "./pages/Logs/Logs";
 import GerenciarUsuarios from "./pages/GerenciarUsuarios/GerenciarUsuarios";
 import GerenciaServicos from "./pages/GerenciaServico/GerenciaServico";
 
@@ -25,7 +24,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Componente de Rota Privada
 const PrivateRoute = ({ children, adminOnly = false }) => {
   const { signed, loadingAuth, user } = useAuth();
 
@@ -86,14 +84,6 @@ function App() {
             element={
               <PrivateRoute>
                 <Dashboard />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/logs"
-            element={
-              <PrivateRoute>
-                <Logs />
               </PrivateRoute>
             }
           />

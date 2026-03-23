@@ -99,7 +99,37 @@ export default function Home() {
       return eMeu;
     });
   }, [servicos, user?.nome]);
+  const ajustarParaDiaUtil = (data) => {
+    const novaData = new Date(data);
+    const diaSemana = novaData.getDay();
 
+    if (diaSemana === 0) {
+      novaData.setDate(novaData.getDate() + 1);
+    } else if (diaSemana === 6) {
+      novaData.setDate(novaData.getDate() + 2);
+    }
+    return novaData;
+  };
+
+  const calcularDiasUteisEntre = (dataPlanejada, dataReferencia) => {
+    const dataAlvo = new Date(dataPlanejada);
+    const hoje = new Date(dataReferencia);
+
+    dataAlvo.setHours(0, 0, 0, 0);
+    hoje.setHours(0, 0, 0, 0);
+
+    let contador = 0;
+    let atual = new Date(dataAlvo);
+    const reverso = atual < hoje;
+
+    while (reverso ? atual < hoje : atual > hoje) {
+      const dia = atual.getDay();
+      if (dia !== 0 && dia !== 6) contador++;
+      atual.setDate(atual.getDate() + (reverso ? 1 : -1));
+    }
+
+    return reverso ? contador : -contador;
+  };
   const calcularDiasRestantes = (dataVencimento) => {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -110,8 +140,29 @@ export default function Home() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
+  const podeConcluirServico = (proximaExecucao, periodicidade) => {
+    const hoje = new Date();
+    const dataEsperada = new Date(proximaExecucao);
 
-  console.log("Resultado Final do Filtro:", minhasRotinasPendentes);
+    const diasUteisDeDiferenca = calcularDiasUteisEntre(dataEsperada, hoje);
+    const diasAbsolutos = Math.abs(diasUteisDeDiferenca);
+
+    let margemPermitida = 0;
+    if (periodicidade < 30) margemPermitida = 2;
+    else if (periodicidade <= 31)
+      margemPermitida = 5; // 5 dias ÚTEIS (uma semana cheia)
+    else if (periodicidade <= 95)
+      margemPermitida = 10; // 10 dias ÚTEIS (duas semanas)
+    else if (periodicidade <= 185) margemPermitida = 20;
+    else margemPermitida = 30;
+
+    return {
+      permitido: diasAbsolutos <= margemPermitida,
+      margem: margemPermitida,
+      atrasoReal: diasUteisDeDiferenca,
+    };
+  };
+
   const handleConcluirRotina = async (id, nome) => {
     const result = await registrarExecucao(id);
     if (result.success) {
@@ -183,7 +234,7 @@ export default function Home() {
 
     const faltantes = obrigatorios.filter(
       (campo) =>
-        !dadosModal[campo] || dadosModal[campo].toString().trim() === ""
+        !dadosModal[campo] || dadosModal[campo].toString().trim() === "",
     );
 
     if (faltantes.length > 0 || !dadosModal.arquivoAbertura) {
@@ -200,7 +251,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       Object.keys(dadosModal).forEach((key) =>
-        formData.append(key, dadosModal[key])
+        formData.append(key, dadosModal[key]),
       );
 
       const novaOSDoBanco = await useCreateOs(formData);
@@ -332,7 +383,7 @@ export default function Home() {
             } else {
               window.open(
                 `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`,
-                "_blank"
+                "_blank",
               );
             }
           }
@@ -371,9 +422,9 @@ export default function Home() {
             if (result.isConfirmed) {
               window.open(
                 `https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  textoWpp
+                  textoWpp,
                 )}`,
-                "_blank"
+                "_blank",
               );
             }
           });
@@ -644,7 +695,7 @@ export default function Home() {
 
     return Object.values(agrupado).sort(
       (a, b) =>
-        b.aberto + b.processo + b.pronto - (a.aberto + a.processo + a.pronto)
+        b.aberto + b.processo + b.pronto - (a.aberto + a.processo + a.pronto),
     );
   }, [ossParaProcessar, user, isAdmin]);
 
@@ -778,7 +829,7 @@ export default function Home() {
       `\n\n` +
       `📅 *DATA:* ${new Date().toLocaleDateString()} às ${new Date().toLocaleTimeString(
         [],
-        { hour: "2-digit", minute: "2-digit" }
+        { hour: "2-digit", minute: "2-digit" },
       )}`;
     if (navigator.share) {
       try {
@@ -788,13 +839,13 @@ export default function Home() {
         });
       } catch (err) {
         const urlFallback = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-          texto
+          texto,
         )}`;
         window.open(urlFallback, "_blank");
       }
     } else {
       const urlDesktop = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-        texto
+        texto,
       )}`;
       window.open(urlDesktop, "_blank");
     }
@@ -823,7 +874,6 @@ export default function Home() {
                 Cronograma de Manutenção Frequente
               </S.StatusBadge>
 
-              {/* Botão posicionado no topo da seção ou abaixo do grid */}
               <button
                 onClick={() => setIsModalFrequenteOpen(true)}
                 style={{
@@ -839,16 +889,29 @@ export default function Home() {
                   gap: "5px",
                 }}
               >
-                <Plus size={14} /> Configurar Nova Preventiva
+                <Plus size={14} /> Adicionar OS preventiva
               </button>
             </div>
 
             <S.GridAlertas>
               {minhasRotinasPendentes.map((rotina) => {
-                const dias = calcularDiasRestantes(rotina.proximaExecucao);
+                const hoje = new Date();
+                const diasDiferenca = calcularDiasUteisEntre(
+                  rotina.proximaExecucao,
+                  hoje,
+                );
+
+                let margem = 5;
+                if (rotina.periodicidadeDias <= 31) margem = 5;
+                else if (rotina.periodicidadeDias <= 95) margem = 10;
+                else if (rotina.periodicidadeDias <= 185) margem = 20;
+                else margem = 30;
+                const muitoAdiantado = diasDiferenca < -margem;
+                const muitoAtrasado = diasDiferenca > margem;
+                const podeConcluir = !muitoAdiantado && !muitoAtrasado;
 
                 return (
-                  <S.AlertaCard key={rotina._id} isVencido={dias <= 0}>
+                  <S.AlertaCard key={rotina._id}>
                     <div className="info">
                       <div className="icon-box">
                         <Calendar size={20} />
@@ -860,12 +923,16 @@ export default function Home() {
                         </p>
 
                         <div style={{ marginTop: "8px" }}>
-                          <span className="status-dia">
-                            {dias === 0
+                          <span
+                            className={
+                              diasDiferenca > 0 ? "atrasado" : "no-prazo"
+                            }
+                          >
+                            {diasDiferenca === 0
                               ? "⚠️ Vence hoje!"
-                              : dias < 0
-                              ? `🚨 Atrasado há ${Math.abs(dias)} dias`
-                              : `⏳ Faltam ${dias} dias`}
+                              : diasDiferenca > 0
+                                ? `🚨 Atrasado ${diasDiferenca} dias úteis`
+                                : `⏳ Faltam ${Math.abs(diasDiferenca)} dias úteis`}
                           </span>
 
                           {rotina.ultimaExecucao && (
@@ -879,19 +946,48 @@ export default function Home() {
                             >
                               Última execução:{" "}
                               {new Date(
-                                rotina.ultimaExecucao
+                                rotina.ultimaExecucao,
                               ).toLocaleDateString()}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
+                    {muitoAdiantado && (
+                      <p
+                        style={{
+                          color: "#3b82f6",
+                          fontSize: "11px",
+                          marginTop: "10px",
+                        }}
+                      >
+                        Muito cedo para registrar. Disponível em{" "}
+                        {Math.abs(diasDiferenca) - margem} dias.
+                      </p>
+                    )}
 
+                    {muitoAtrasado && (
+                      <p
+                        style={{
+                          color: "#ef4444",
+                          fontSize: "11px",
+                          marginTop: "10px",
+                        }}
+                      >
+                        Prazo de conclusão expirado ({margem} dias excedidos).
+                      </p>
+                    )}
                     <button
                       className="btn-done"
+                      disabled={!podeConcluir}
                       onClick={() =>
                         handleConcluirRotina(rotina._id, rotina.nome)
                       }
+                      style={{
+                        marginTop: "15px",
+                        opacity: podeConcluir ? 1 : 0.5,
+                        cursor: podeConcluir ? "pointer" : "not-allowed",
+                      }}
                     >
                       Marcar como Concluído
                     </button>
@@ -938,7 +1034,7 @@ export default function Home() {
               <>
                 {renderCardExecutores("Minhas pendências")}
                 {renderCardSolicitantes(
-                  "Solicitantes referentes as minhas OS's"
+                  "Solicitantes referentes as minhas OS's",
                 )}
               </>
             )}

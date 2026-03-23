@@ -7,14 +7,23 @@ import ModalAdicionarServico from "../../components/ModalAddServico/ModalAddServ
 import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
 const GerenciaServicos = () => {
   const { servicos, fetchServicos, logs, fetchLogs } = useServico();
-  const { opcoesFiltros } = useOS();
+  const { opcoes, loading } = useOS();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [servicoParaEditar, setServicoParaEditar] = useState(null);
 
   useEffect(() => {
     fetchServicos();
     fetchLogs();
   }, [fetchServicos, fetchLogs]);
+  const handleAbrirModalNovo = () => {
+    setServicoParaEditar(null);
+    setIsModalOpen(true);
+  };
 
+  const handleAbrirModalEdicao = (servico) => {
+    setServicoParaEditar(servico);
+    setIsModalOpen(true);
+  };
   return (
     <S.Container>
       <MenuGlobal />
@@ -27,7 +36,7 @@ const GerenciaServicos = () => {
               Gerencie regras de manutenção e audite o histórico de execuções
             </p>
           </div>
-          <button className="btn-novo" onClick={() => setIsModalOpen(true)}>
+          <button className="btn-novo" onClick={handleAbrirModalNovo}>
             Configurar Novo Serviço
           </button>
         </S.HeaderPage>
@@ -63,7 +72,7 @@ const GerenciaServicos = () => {
                     <td>
                       <button
                         className="btn-edit"
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={handleAbrirModalEdicao}
                       >
                         <Edit size={16} />
                       </button>
@@ -134,7 +143,8 @@ const GerenciaServicos = () => {
       <ModalAdicionarServico
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        opcoes={opcoesFiltros}
+        opcoes={opcoes} // Agora passa o objeto correto { setores, executores, etc }
+        dadosEdicao={servicoParaEditar}
       />
     </S.Container>
   );
