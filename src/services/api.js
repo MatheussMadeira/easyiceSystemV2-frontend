@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  //baseURL: "https://easyicesystemv2-backend.onrender.com/api",
-  baseURL: "http://localhost:3001/api",
+  baseURL: "https://easyicesystemv2-backend.onrender.com/api",
+  //baseURL: "http://localhost:3001/api",
 });
 
 api.interceptors.request.use(
