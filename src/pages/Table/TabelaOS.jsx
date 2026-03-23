@@ -34,7 +34,6 @@ const TabelaOS = () => {
     Object.keys(filtros).forEach((key) => {
       const valor = filtros[key];
 
-      // Define a chave: buscaGlobal vira 'busca', numeroOS continua 'numeroOS'
       const queryKey = key === "buscaGlobal" ? "busca" : key;
 
       if (Array.isArray(valor) && valor.length > 0) {
@@ -54,6 +53,13 @@ const TabelaOS = () => {
     isUpdatingInline,
     isLoading,
   } = useOS(prepararFiltrosParaAPI);
+
+  const swalConfig = {
+    background: "#09090b",
+    color: "#fafafa",
+    confirmButtonColor: "#3b82f6",
+    cancelButtonColor: "#27272a",
+  };
 
   const { signed, user, logout } = useAuth();
   const { usuarios, createUser, updateUser, deleteUser } = useUser();
@@ -87,6 +93,11 @@ const TabelaOS = () => {
     setAbaFiltroAberta(false);
     setSeletorAberto(false);
   };
+  const formatarDataEntrega = (dataString) => {
+    if (!dataString) return "-";
+    const data = new Date(dataString);
+    return data.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  };
   const IDS_COLUNAS = {
     NUMERO: "numeroOS",
     ABERTURA: "abertura",
@@ -98,11 +109,15 @@ const TabelaOS = () => {
     STATUS: "status",
     PRIORIDADE: "prioridade",
     FOTO_INI: "foto_inicio",
-    OBS: "obs", // Andamento / Processo
-    DESC_FECHAMENTO: "desc_fechamento", // Relatório Final
+    OBS: "obs",
+    DATA_PREVISTA: "data_prevista",
+    PRONTO_EM: "pronto_em",
+    DESC_FECHAMENTO: "desc_fechamento",
     FECHAMENTO: "fechamento",
     PECAS: "pecas",
     VALOR: "valor",
+    MAO_DE_OBRA: "valorMaoDeObra",
+    VALOR_TOTAL: "valorTotal",
     FOTO_FIM: "foto_fim",
     ACOES: "acoes",
   };
@@ -117,6 +132,7 @@ const TabelaOS = () => {
   const handleDeletarUsuario = async () => {
     if (!usuarioParaEditar) return;
     const result = await Swal.fire({
+      ...swalConfig,
       title: `Remover ${usuarioParaEditar.nome}?`,
       text: "Isso excluirá o acesso deste usuário ao sistema.",
       icon: "warning",
@@ -129,11 +145,16 @@ const TabelaOS = () => {
     if (result.isConfirmed) {
       try {
         await deleteUser(usuarioParaEditar._id);
-        Swal.fire("Removido!", "O usuário foi excluído.", "success");
+        Swal.fire(
+          ...swalConfig,
+          "Removido!",
+          "O usuário foi excluído.",
+          "success"
+        );
         setModalUsuarioAberto(false);
       } catch (err) {
         const msg = err.response?.data?.erro || "Não foi possível excluir.";
-        Swal.fire("Erro", msg, "error");
+        Swal.fire(...swalConfig, "Erro", msg, "error");
       }
     }
   };
@@ -166,15 +187,25 @@ const TabelaOS = () => {
 
       if (usuarioParaEditar) {
         await updateUser({ id: usuarioParaEditar._id, dados: payload });
-        Swal.fire("Sucesso", "Usuário atualizado com sucesso!", "success");
+        Swal.fire(
+          ...swalConfig,
+          "Sucesso",
+          "Usuário atualizado com sucesso!",
+          "success"
+        );
       } else {
         await createUser(payload);
-        Swal.fire("Sucesso", "Novo usuário cadastrado!", "success");
+        Swal.fire(
+          ...swalConfig,
+          "Sucesso",
+          "Novo usuário cadastrado!",
+          "success"
+        );
       }
       setModalUsuarioAberto(false);
     } catch (err) {
       const msg = err.response?.data?.erro || "Erro ao processar solicitação.";
-      Swal.fire("Erro", msg, "error");
+      Swal.fire(...swalConfig, "Erro", msg, "error");
     }
   };
 
@@ -187,6 +218,7 @@ const TabelaOS = () => {
   const handleExportarExcel = () => {
     if (ordensFiltradas.length === 0) {
       return Swal.fire(
+        ...swalConfig,
         "Aviso",
         "Não há dados filtrados para exportar.",
         "info"
@@ -215,6 +247,13 @@ const TabelaOS = () => {
         linha["Prioridade"] = os.prioridade;
       if (colunasVisiveis.includes(IDS_COLUNAS.OBS))
         linha["Obs Técnica (Andamento)"] = os.descricaoProcesso || "-";
+      if (colunasVisiveis.includes(IDS_COLUNAS.DATA_PREVISTA))
+        linha["Data prevista para finalização"] = os.dataPrevista || "-";
+      if (colunasVisiveis.includes(IDS_COLUNAS.PRONTO_EM)) {
+        linha["Pronto para Finalizar em"] = os.dataParaConcluir
+          ? new Date(os.dataParaConcluir).toLocaleDateString()
+          : "-";
+      }
       if (colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO))
         linha["Relatório Final"] = os.descricaoFechamento || "-";
       if (colunasVisiveis.includes(IDS_COLUNAS.FECHAMENTO))
@@ -223,8 +262,30 @@ const TabelaOS = () => {
           : "-";
       if (colunasVisiveis.includes(IDS_COLUNAS.PECAS))
         linha["Peças Utilizadas"] = os.pecasUtilizadas || "-";
-      if (colunasVisiveis.includes(IDS_COLUNAS.VALOR))
-        linha["Valor R$"] = os.valorPecas || "0,00";
+
+      if (colunasVisiveis.includes(IDS_COLUNAS.VALOR)) {
+        linha["Valor Peças R$"] = Number(os.valorPecas || 0).toLocaleString(
+          "pt-BR",
+          {
+            minimumFractionDigits: 2,
+          }
+        );
+      }
+
+      if (colunasVisiveis.includes(IDS_COLUNAS.MAO_DE_OBRA)) {
+        const valorMDO = Number(os.valorMaoDeObra || 0);
+        linha["Valor Mão de Obra R$"] = valorMDO.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+        });
+      }
+
+      if (colunasVisiveis.includes(IDS_COLUNAS.VALOR_TOTAL)) {
+        const total =
+          Number(os.valorPecas || 0) + Number(os.valorMaoDeObra || 0);
+        linha["Valor Total R$"] = total.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+        });
+      }
 
       return linha;
     });
@@ -236,7 +297,7 @@ const TabelaOS = () => {
       workbook,
       `Relatorio_OS_${new Date().toLocaleDateString().replace(/\//g, "-")}.xlsx`
     );
-    Swal.fire("Sucesso", "Relatório exportado!", "success");
+    Swal.fire(...swalConfig, "Sucesso", "Relatório exportado!", "success");
   };
 
   const { data: opcoes } = useQuery({
@@ -268,27 +329,38 @@ const TabelaOS = () => {
       setPopoverAberto(null);
     } catch (err) {
       const msg = err.response?.data?.erro || "Sem permissão para alterar.";
-      Swal.fire({ title: "Acesso Negado", text: msg, icon: "error" });
+      Swal.fire({
+        ...swalConfig,
+        title: "Acesso Negado",
+        text: msg,
+        icon: "error",
+      });
     }
   };
 
   const handleDelete = async (id) => {
     if (isDeleting) return;
     const result = await Swal.fire({
+      ...swalConfig,
       title: "Excluir esta OS?",
       text: "Você tem certeza disso?",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#ef4444",
       confirmButtonText: "Sim, deletar",
     });
 
     if (result.isConfirmed) {
       try {
         await useDeleteOs(id);
-        Swal.fire("Sucesso", "Ordem de serviço removida.", "success");
+        Swal.fire(
+          ...swalConfig,
+          "Sucesso",
+          "Ordem de serviço removida.",
+          "success"
+        );
       } catch (err) {
         Swal.fire(
+          ...swalConfig,
           "Acesso Negado",
           err.response?.data?.erro || "Erro ao deletar",
           "error"
@@ -302,17 +374,24 @@ const TabelaOS = () => {
       CONCLUÍDO: { bg: "rgba(16, 185, 129, 0.15)", text: "#10b981" },
       "EM PROCESSO": { bg: "rgba(59, 130, 246, 0.15)", text: "#3b82f6" },
       "EM ABERTO": { bg: "rgba(245, 158, 11, 0.15)", text: "#f59e0b" },
-      CANCELADA: { bg: "rgba(239, 68, 68, 0.15)", text: "#ef4444" },
+      "PRONTO PARA FINALIZAÇÃO": {
+        bg: "rgba(153, 197, 86, 0.15)",
+        text: "#97c552",
+      },
     };
     return configs[status] || { bg: "#18181b", text: "#71717a" };
   };
 
   const getPriorityStyles = (p) => {
-    if (p?.includes("Emergencia"))
+    const priority = p?.toUpperCase() || "";
+
+    if (priority.includes("EMERGENCIA"))
       return { bg: "rgba(168, 85, 247, 0.15)", text: "#a855f7" };
-    if (p?.includes("Alta"))
+
+    if (priority.includes("ALTA"))
       return { bg: "rgba(239, 68, 68, 0.15)", text: "#ef4444" };
-    return { bg: "rgba(113, 113, 122, 0.15)", text: "#a1a1aa" };
+
+    return { bg: "rgba(0, 217, 255, 0.15)", text: "#01d9ff" };
   };
   useEffect(() => {
     const handleClickFora = (event) => {
@@ -493,12 +572,11 @@ const TabelaOS = () => {
                 {colunasVisiveis.includes(IDS_COLUNAS.EQUIPAMENTO) && (
                   <S.Th style={{ width: "200px" }}>Equipamento</S.Th>
                 )}
-                {/* LARGURA AUMENTADA PARA DESCRIÇÃO DE ABERTURA */}
                 {colunasVisiveis.includes(IDS_COLUNAS.DESCRICAO) && (
                   <S.Th style={{ width: "450px" }}>Descrição</S.Th>
                 )}
                 {colunasVisiveis.includes(IDS_COLUNAS.STATUS) && (
-                  <S.Th style={{ width: "160px" }}>Status</S.Th>
+                  <S.Th style={{ width: "250px" }}>Status</S.Th>
                 )}
                 {colunasVisiveis.includes(IDS_COLUNAS.PRIORIDADE) && (
                   <S.Th style={{ width: "160px" }}>Prioridade</S.Th>
@@ -506,13 +584,16 @@ const TabelaOS = () => {
                 {colunasVisiveis.includes(IDS_COLUNAS.FOTO_INI) && (
                   <S.Th style={{ width: "80px" }}>Foto</S.Th>
                 )}
-                {/* LARGURA AUMENTADA PARA OBS TÉCNICA (ANDAMENTO) */}
                 {colunasVisiveis.includes(IDS_COLUNAS.OBS) && (
                   <S.Th style={{ width: "400px" }}>
                     Obs. Técnica (Andamento)
                   </S.Th>
                 )}
-                {/* LARGURA AUMENTADA PARA DESCRIÇÃO DE FECHAMENTO */}
+                {colunasVisiveis.includes(IDS_COLUNAS.DATA_PREVISTA) && (
+                  <S.Th style={{ width: "120px" }}>
+                    Data Prevista para Finazalização
+                  </S.Th>
+                )}
                 {colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO) && (
                   <S.Th style={{ width: "400px" }}>Descrição Fechamento</S.Th>
                 )}
@@ -525,8 +606,17 @@ const TabelaOS = () => {
                 {colunasVisiveis.includes(IDS_COLUNAS.VALOR) && (
                   <S.Th style={{ width: "120px" }}>Valor R$</S.Th>
                 )}
+                {colunasVisiveis.includes(IDS_COLUNAS.MAO_DE_OBRA) && (
+                  <S.Th style={{ width: "120px" }}>Valor Mao de Obra R$</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.VALOR_TOTAL) && (
+                  <S.Th style={{ width: "120px" }}>Valor Total R$</S.Th>
+                )}
                 {colunasVisiveis.includes(IDS_COLUNAS.FOTO_FIM) && (
                   <S.Th style={{ width: "80px" }}>Foto Fim</S.Th>
+                )}
+                {colunasVisiveis.includes(IDS_COLUNAS.PRONTO_EM) && (
+                  <S.Th style={{ width: "120px" }}>Técnico Finalizou em</S.Th>
                 )}
                 {colunasVisiveis.includes(IDS_COLUNAS.ACOES) && (
                   <S.Th style={{ width: "80px" }}>Ações</S.Th>
@@ -714,7 +804,12 @@ const TabelaOS = () => {
                         {popoverAberto?.id === os._id &&
                           popoverAberto?.field === "situacao" && (
                             <SeletorGrade
-                              opcoes={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
+                              opcoes={[
+                                "EM ABERTO",
+                                "EM PROCESSO",
+                                "CONCLUÍDO",
+                                "PRONTO PARA FINALIZAR",
+                              ]}
                               valorAtual={os.situacao}
                               aoSelecionar={(v) => {
                                 handleUpdate(os._id, "situacao", v);
@@ -803,6 +898,49 @@ const TabelaOS = () => {
                         />
                       </S.TdTexto>
                     )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.DATA_PREVISTA) && (
+                      <S.Td>
+                        {os.dataPrevista ? (
+                          (() => {
+                            const dataAjustada = new Date(os.dataPrevista);
+                            dataAjustada.setMinutes(
+                              dataAjustada.getMinutes() +
+                                dataAjustada.getTimezoneOffset()
+                            );
+                            const isAtrasada =
+                              new Date(dataAjustada).setHours(0, 0, 0, 0) <
+                                new Date().setHours(0, 0, 0, 0) &&
+                              os.situacao !== "CONCLUÍDO";
+                            return (
+                              <div
+                                style={{
+                                  color: isAtrasada ? "#ef4444" : "#f97316", // Vermelho se atrasado, Laranja se no prazo
+                                  fontWeight: "600",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "2px",
+                                }}
+                              >
+                                {dataAjustada.toLocaleDateString("pt-BR")}
+                                {isAtrasada && (
+                                  <span
+                                    style={{
+                                      fontSize: "9px",
+                                      color: "#ef4444",
+                                      fontWeight: "800",
+                                    }}
+                                  >
+                                    ⚠️ ATRASADA
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <span style={{ color: "#71717a" }}>-</span>
+                        )}
+                      </S.Td>
+                    )}
                     {colunasVisiveis.includes(IDS_COLUNAS.DESC_FECHAMENTO) && (
                       <S.TdTexto>
                         <S.EditableTextarea
@@ -842,7 +980,39 @@ const TabelaOS = () => {
                       </S.TdTexto>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.VALOR) && (
-                      <S.Td>R$ {os.valorPecas || "0,00"}</S.Td>
+                      <S.Td style={{ fontWeight: "bold" }}>
+                        R${" "}
+                        {Number(os.valorPecas || 0).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </S.Td>
+                    )}
+
+                    {colunasVisiveis.includes(IDS_COLUNAS.MAO_DE_OBRA) && (
+                      <S.Td style={{ fontWeight: "bold" }}>
+                        R${" "}
+                        {Number(os.valorMaoDeObra || 0).toLocaleString(
+                          "pt-BR",
+                          {
+                            minimumFractionDigits: 2,
+                          }
+                        )}
+                      </S.Td>
+                    )}
+
+                    {colunasVisiveis.includes(IDS_COLUNAS.VALOR_TOTAL) && (
+                      <S.Td
+                        style={{
+                          color: "#3b82f6",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        R${" "}
+                        {(
+                          Number(os.valorPecas || 0) +
+                          Number(os.valorMaoDeObra || 0)
+                        ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </S.Td>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.FOTO_FIM) && (
                       <S.Td>
@@ -866,6 +1036,53 @@ const TabelaOS = () => {
                             <S.FotoThumbnail className="vazio" />
                           )}
                         </S.FotoWrapper>
+                      </S.Td>
+                    )}
+                    {colunasVisiveis.includes(IDS_COLUNAS.PRONTO_EM) && (
+                      <S.Td>
+                        {os.dataParaConcluir ? (
+                          (() => {
+                            const dataPronto = new Date(os.dataParaConcluir);
+                            const agora = new Date();
+
+                            const diffHoras =
+                              Math.abs(agora - dataPronto) / (1000 * 60 * 60);
+
+                            const aguardandoMuito =
+                              diffHoras > 24 &&
+                              os.situacao === "PRONTO PARA FINALIZAR";
+
+                            return (
+                              <div
+                                style={{
+                                  color: aguardandoMuito
+                                    ? "#ef4444"
+                                    : "#22c55e",
+                                  fontWeight: "600",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "2px",
+                                }}
+                              >
+                                {dataPronto.toLocaleDateString("pt-BR")}
+                                {aguardandoMuito && (
+                                  <span
+                                    style={{
+                                      fontSize: "9px",
+                                      color: "#ef4444",
+                                      fontWeight: "800",
+                                    }}
+                                  >
+                                    ⏳ AGUARDANDO SOLICITANTE (
+                                    {Math.floor(diffHoras)}h)
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <span style={{ color: "#71717a" }}>-</span>
+                        )}
                       </S.Td>
                     )}
                     {colunasVisiveis.includes(IDS_COLUNAS.ACOES) && (

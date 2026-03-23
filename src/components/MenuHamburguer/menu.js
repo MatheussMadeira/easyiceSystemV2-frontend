@@ -6,7 +6,7 @@ export const MenuToggle = styled.button`
   height: 42px;
   top: 20px;
   left: 20px;
-  background: #09090b;
+  background: rgba(9, 9, 11, 0.75);
   border: 1px solid #1f1f23;
   color: #fafafa;
   border-radius: 8px;
@@ -16,7 +16,9 @@ export const MenuToggle = styled.button`
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-
+  @media (max-width: 1168px) {
+    font-size: 1.3rem;
+  }
   &:hover {
     background: #18181b;
     border-color: #27272a;
@@ -32,7 +34,6 @@ export const MenuOverlay = styled.div`
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   z-index: 998;
-  /* Mudado para $isOpen */
   display: ${(props) => (props.$isOpen ? "block" : "none")};
 `;
 

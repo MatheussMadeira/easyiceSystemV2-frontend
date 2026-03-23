@@ -9,6 +9,7 @@ export const PaginaContainer = styled.div`
   font-family: "Inter", sans-serif;
   color: #fafafa;
   overflow: hidden;
+  text-transform: uppercase;
 `;
 
 export const HeaderFixo = styled.header`

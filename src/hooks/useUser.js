@@ -57,7 +57,7 @@ export const useUser = () => {
 
   return {
     usuarios,
-    loading: isLoading || passwordMutation.isPending, // isLoading do Query + isPending da Senha
+    loading: isLoading || passwordMutation.isPending,
     updatePassword,
     createUser: createMutation.mutateAsync,
     updateUser: updateMutation.mutateAsync,

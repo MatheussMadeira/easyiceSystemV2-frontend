@@ -4,13 +4,12 @@ export const PaginaContainer = styled.div`
   background-color: #09090b;
   min-height: 100vh;
   width: 100%;
-  /* Removemos o overflow: hidden que costuma ter na tabela */
   overflow-y: auto;
   position: relative;
 `;
 
 export const HeaderFixo = styled.div`
-  position: sticky; /* Sticky é melhor que Fixed para permitir scroll natural */
+  position: sticky;
   top: 0;
   z-index: 10;
   background-color: #09090b;

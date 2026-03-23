@@ -198,6 +198,19 @@ export const InputWrapper = styled.div`
   }
 `;
 
+export const GridFullWidth = styled.div`
+  width: 100%;
+  margin-bottom: 24px;
+  display: block;
+  margin-top: 24px;
+`;
+
+export const GridFull = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  width: 100%;
+`;
 export const InputLimite = styled.input`
   background: #09090b;
   color: #3b82f6;

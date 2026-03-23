@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://easyicesystemv2-backend.onrender.com/api",
-  //baseURL: "http://localhost:3001/api",
+  //baseURL: "https://easyicesystemv2-backend.onrender.com/api",
+  baseURL: "http://localhost:3001/api",
 });
 
 api.interceptors.request.use(
@@ -24,8 +24,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem("@EasyIce:token");
-      localStorage.removeItem("@EasyIce:user");
+      if (!window.location.pathname.includes("/login")) {
+        localStorage.removeItem("@EasyIce:token");
+        localStorage.removeItem("@EasyIce:user");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }

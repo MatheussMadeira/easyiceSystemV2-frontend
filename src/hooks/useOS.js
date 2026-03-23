@@ -6,7 +6,6 @@ export const useOS = (filtrosAPI = {}) => {
 
   // --- BUSCAS (Queries) ---
 
-  // 1. Buscar OS com filtros dinâmicos
   const { data: ordens = [], isLoading: loadingOs } = useQuery({
     queryKey: ["ordens", filtrosAPI],
     queryFn: async () => {
@@ -56,18 +55,23 @@ export const useOS = (filtrosAPI = {}) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens"] });
       queryClient.invalidateQueries({ queryKey: ["nextNumber"] });
+      queryClient.invalidateQueries({ queryKey: ["logs"] });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, formData }) => {
+      const isFormData = formData instanceof FormData;
       const res = await api.put(`/os/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: {
+          ...(isFormData ? { "Content-Type": "multipart/form-data" } : {}),
+        },
       });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens"] });
+      queryClient.invalidateQueries({ queryKey: ["logs"] });
     },
   });
 
@@ -78,9 +82,19 @@ export const useOS = (filtrosAPI = {}) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens"] });
+      queryClient.invalidateQueries({ queryKey: ["logs"] });
     },
   });
-
+  const pecasMutation = useMutation({
+    mutationFn: async ({ numeroOS, dados }) => {
+      const res = await api.patch(`/os/numero/${numeroOS}/pecas`, dados);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ordens"] });
+      queryClient.invalidateQueries({ queryKey: ["logs"] });
+    },
+  });
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       await api.delete(`/os/${id}`);
@@ -103,12 +117,15 @@ export const useOS = (filtrosAPI = {}) => {
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isUpdatingInline: inlineMutation.isPending,
+    isLancingPecas: pecasMutation.isPending,
 
     useCreateOs: createMutation.mutateAsync,
     useUpdateOs: (id, formData) => updateMutation.mutateAsync({ id, formData }),
     useUpdateInline: (id, dados) => inlineMutation.mutateAsync({ id, dados }),
     useDeleteOs: deleteMutation.mutateAsync,
     useGetOs: () => queryClient.invalidateQueries({ queryKey: ["ordens"] }),
+    useLancarPecas: (numeroOS, dados) =>
+      pecasMutation.mutateAsync({ numeroOS, dados }),
     useGetOptions: () =>
       queryClient.invalidateQueries({ queryKey: ["opcoes"] }),
     useGetNextNumber: () =>

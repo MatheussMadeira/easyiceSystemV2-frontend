@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import * as S from "./styles";
 import { createPortal } from "react-dom";
 import SeletorGrade from "../PopoverTable/PopoverTable";
+import { useNavigate } from "react-router-dom";
 
 const ModalBase = ({
   isOpen,
@@ -13,11 +14,12 @@ const ModalBase = ({
   data,
   setData,
   footerActions,
-  isLoading, // Recebendo o estado de trava
+  isLoading,
+  disableSubmit,
 }) => {
   const [campoAberto, setCampoAberto] = useState(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-
+  const navigate = useNavigate();
   // Corrigido: triggerRefs agora mapeia as refs dos elementos
   const triggerRefs = useRef({});
 
@@ -80,19 +82,45 @@ const ModalBase = ({
         <S.ModalBody>
           {fields.map((field) => (
             <S.InputGroup key={field.name}>
-              <label>{field.label}</label>
+              {/* Esconde a label padrão se for do tipo bloqueio para não poluir */}
+              {field.type !== "bloqueio" && <label>{field.label}</label>}
 
-              {field.type === "select" ? (
+              {field.type === "bloqueio" ? (
+                <S.ContainerBloqueio>
+                  <div className="header-bloqueio">
+                    <span className="icone">⚠️</span>
+                    <label>{field.label}</label>
+                  </div>
+                  <span className="mensagem-erro">{field.message}</span>
+                  <button
+                    className="botao-redirecionar"
+                    type="button"
+                    onClick={() => {
+                      const numeroParaMandar =
+                        data?.numeroOS || title?.replace(/\D/g, "");
+
+                      console.log("Enviando número:", numeroParaMandar);
+                      navigate(`${field.redirectTo}?os=${numeroParaMandar}`, {
+                        state: { numeroOS: numeroParaMandar },
+                      });
+                    }}
+                  >
+                    {field.buttonText}
+                  </button>
+                </S.ContainerBloqueio>
+              ) : field.type === "select" ? (
                 <div style={{ position: "relative" }}>
                   <S.SeletorTrigger
-                    ref={(el) => (triggerRefs.current[field.name] = el)} // CAPTURA A REF AQUI
+                    ref={(el) => (triggerRefs.current[field.name] = el)}
                     type="button"
                     focado={campoAberto === field.name}
                     onClick={() => handleAbrirSeletor(field.name)}
-                    temValor={!!data[field.name]}
+                    $temValor={!!data[field.name]}
                     disabled={isLoading}
                   >
-                    <span>{data[field.name] || "Selecione..."}</span>
+                    <span color="#fafafa">
+                      {data[field.name] || "Selecione..."}
+                    </span>
                     <span className="seta">▾</span>
                   </S.SeletorTrigger>
 
@@ -100,7 +128,6 @@ const ModalBase = ({
                     createPortal(
                       <S.PopoverWrapper
                         style={{
-                          // Estes estilos inline serão ignorados pelo !important do seu CSS de Mobile
                           position: "absolute",
                           top: coords.top + 4,
                           left: coords.left,
@@ -153,7 +180,10 @@ const ModalBase = ({
           <S.BotaoCancelar onClick={onClose} disabled={isLoading}>
             Cancelar
           </S.BotaoCancelar>
-          <S.BotaoConfirmar onClick={onSubmit} disabled={isLoading}>
+          <S.BotaoConfirmar
+            onClick={onSubmit}
+            disabled={isLoading || disableSubmit}
+          >
             {isLoading ? "Salvando..." : "Confirmar"}
           </S.BotaoConfirmar>
         </S.ModalFooter>

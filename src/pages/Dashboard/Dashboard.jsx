@@ -25,23 +25,23 @@ import {
 } from "lucide-react";
 
 const DashboardOS = () => {
-  // Estado para o limite dinâmico (inicia em 100)
   const [limite, setLimite] = useState(100);
 
   const { data: ordens = [], isLoading } = useQuery({
-    queryKey: ["ordens"],
+    queryKey: ["ordens", { limite }],
     queryFn: async () => {
-      const res = await api.get("/os");
+      const res = await api.get("/os", {
+        params: { limit: limite },
+      });
       return res.data;
     },
+    placeholderData: (previousData) => previousData,
   });
 
   const stats = useMemo(() => {
-    // Tratamento para o limite (não deixar ser menor que 1)
     const qtdParaFiltrar = limite > 0 ? limite : 1;
 
-    // Filtra as últimas OS baseada no input do usuário
-    const ultimasOrdens = [...ordens]
+    const ultimasOrdens = ordens
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, qtdParaFiltrar);
 
@@ -59,14 +59,12 @@ const DashboardOS = () => {
       (os) => os.situacao === "EM PROCESSO"
     ).length;
 
-    // 1. Pizza Status
     const dadosPizza = [
       { name: "Concluído", value: concluidas, color: "#10b981" },
       { name: "Em Aberto", value: emAberto, color: "#f59e0b" },
       { name: "Em Processo", value: emProcesso, color: "#3b82f6" },
     ];
 
-    // 2. Prioridade
     const prioridadeMap = ultimasOrdens.reduce((acc, os) => {
       const prio = normalizarPalavra(os.prioridade?.split(" ")[0]);
       acc[prio] = (acc[prio] || 0) + 1;
@@ -82,7 +80,6 @@ const DashboardOS = () => {
       }))
       .sort((a, b) => b.quantidade - a.quantidade);
 
-    // 3. Executores (Top 5 das OS concluídas dentro da amostra)
     const executoresMap = ultimasOrdens.reduce((acc, os) => {
       if (os.situacao === "CONCLUÍDO" && os.executor) {
         const nome = normalizarPalavra(os.executor);
@@ -96,7 +93,6 @@ const DashboardOS = () => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    // 4. Solicitantes (Top 5 da amostra)
     const solicitantesMap = ultimasOrdens.reduce((acc, os) => {
       const nome = normalizarPalavra(os.solicitante);
       acc[nome] = (acc[nome] || 0) + 1;
@@ -108,7 +104,6 @@ const DashboardOS = () => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    // 5. Setores (Top setores da amostra)
     const setoresMap = ultimasOrdens.reduce((acc, os) => {
       const nome = normalizarPalavra(os.setor);
       acc[nome] = (acc[nome] || 0) + 1;
@@ -118,6 +113,37 @@ const DashboardOS = () => {
     const dadosBarras = Object.keys(setoresMap)
       .map((name) => ({ name, quantidade: setoresMap[name] }))
       .sort((a, b) => b.quantidade - a.quantidade);
+
+    const prepararDadosGrafico = (ordens) => {
+      const dados = {};
+
+      ordens.forEach((os) => {
+        if (os.dataParaConcluir && os.dataFechamento) {
+          const dataPronto = new Date(os.dataParaConcluir);
+          const dataFim = new Date(os.dataFechamento);
+
+          const diffDias = (dataFim - dataPronto) / (1000 * 60 * 60 * 24);
+
+          if (!dados[os.solicitante]) {
+            dados[os.solicitante] = {
+              nome: os.solicitante,
+              totalDias: 0,
+              qtd: 0,
+            };
+          }
+
+          dados[os.solicitante].totalDias += diffDias;
+          dados[os.solicitante].qtd += 1;
+        }
+      });
+
+      return Object.values(dados)
+        .map((item) => ({
+          name: item.nome,
+          media: parseFloat((item.totalDias / item.qtd).toFixed(1)),
+        }))
+        .sort((a, b) => b.media - a.media);
+    };
 
     return {
       total,
@@ -129,8 +155,9 @@ const DashboardOS = () => {
       dadosPrioridade,
       rankingExecutores,
       rankingSolicitantes,
+      dadosAprovacao: prepararDadosGrafico(ordens),
     };
-  }, [ordens, limite]);
+  }, [ordens]);
 
   if (isLoading) return <S.Loading>Carregando Dashboard...</S.Loading>;
 
@@ -161,14 +188,9 @@ const DashboardOS = () => {
                 <span>de {ordens.length}</span>
               </S.InputWrapper>
             </S.FiltroGroup>
-
-            <S.BotaoTudo onClick={() => setLimite(ordens.length)}>
-              <Zap size={14} /> Ver Tudo
-            </S.BotaoTudo>
           </S.FiltroContainer>
         </S.Header>
 
-        {/* CARDS DE RESUMO */}
         <S.GridCards>
           <S.Card>
             <div className="icon">
@@ -208,7 +230,6 @@ const DashboardOS = () => {
           </S.Card>
         </S.GridCards>
 
-        {/* GRÁFICOS PRINCIPAIS */}
         <S.GridCharts>
           <S.ChartBox>
             <h3>Distribuição por Situação</h3>
@@ -220,6 +241,7 @@ const DashboardOS = () => {
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
+                  isAnimationActive={false}
                 >
                   {stats.dadosPizza.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -234,7 +256,7 @@ const DashboardOS = () => {
           <S.ChartBox>
             <h3>OS por Setor</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats.dadosBarras}>
+              <BarChart data={stats.dadosBarras} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                 <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
                 <YAxis stroke="#a1a1aa" fontSize={12} />
@@ -253,8 +275,67 @@ const DashboardOS = () => {
             </ResponsiveContainer>
           </S.ChartBox>
         </S.GridCharts>
+        <S.GridFullWidth>
+          <S.ChartBox>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3>Tempo Médio para Aprovação Final (por Solicitante)</h3>
+              <span style={{ fontSize: "12px", color: "#71717a" }}>
+                Métrica: Dias entre o término do técnico e o aceite do
+                solicitante
+              </span>
+            </div>
 
-        {/* SEÇÃO ADICIONAL */}
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart
+                data={stats.dadosAprovacao}
+                layout="vertical"
+                margin={{ left: 40, right: 40 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#27272a"
+                  horizontal={false}
+                />
+                <XAxis type="number" stroke="#a1a1aa" fontSize={12} unit=" d" />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#a1a1aa"
+                  fontSize={12}
+                  width={120}
+                />
+                <Tooltip
+                  cursor={{ fill: "#27272a" }}
+                  contentStyle={{
+                    backgroundColor: "#18181b",
+                    border: "1px solid #3f3f46",
+                  }}
+                />
+                <Bar dataKey="media" radius={[0, 4, 4, 0]} barSize={20}>
+                  {stats.dadosAprovacao.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        entry.media > 2
+                          ? "#ef4444"
+                          : entry.media > 1
+                          ? "#f59e0b"
+                          : "#10b981"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </S.ChartBox>
+        </S.GridFullWidth>
         <S.GridChartsMetade>
           <S.ChartBox>
             <h3>OS por Prioridade (Percentual)</h3>

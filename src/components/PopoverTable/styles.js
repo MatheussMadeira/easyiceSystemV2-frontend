@@ -5,13 +5,15 @@ export const PopoverWrapper = styled.div`
   z-index: 10000;
   background: #18181b;
   border: 1px solid #27272a;
-  width: ${(props) => props.largura || "95%"};
+  width: ${(props) => props.largura || "20vw"};
   border-radius: 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
   margin-top: 8px;
   padding: 12px;
   animation: fadeIn 0.15s ease-out;
-
+  @media (max-width: 1168px) {
+    width: 95%;
+  }
   @keyframes fadeIn {
     from {
       opacity: 0;

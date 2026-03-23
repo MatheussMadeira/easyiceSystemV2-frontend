@@ -15,7 +15,9 @@ import Login from "./pages/Login/Login";
 import TabelaOS from "./pages/Table/TabelaOS";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Perfil from "./pages/Perfil/Perfil";
+import Logs from "./pages/Logs/Logs";
 import GerenciarUsuarios from "./pages/GerenciarUsuarios/GerenciarUsuarios";
+import GerenciaServicos from "./pages/GerenciaServico/GerenciaServico";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +64,7 @@ function App() {
               </PrivateRoute>
             }
           />
+
           <Route
             path="/tabela"
             element={
@@ -86,12 +89,27 @@ function App() {
               </PrivateRoute>
             }
           />
-
+          <Route
+            path="/logs"
+            element={
+              <PrivateRoute>
+                <Logs />
+              </PrivateRoute>
+            }
+          />
           <Route
             path="/usuarios"
             element={
               <PrivateRoute adminOnly={true}>
                 <GerenciarUsuarios />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/servico"
+            element={
+              <PrivateRoute>
+                <GerenciaServicos />
               </PrivateRoute>
             }
           />

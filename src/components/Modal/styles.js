@@ -139,7 +139,7 @@ export const InputGroup = styled.div`
   label {
     font-size: 12px;
     font-weight: 500;
-    color: #71717a;
+    color: #fafafa;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -164,10 +164,7 @@ export const SeletorTrigger = styled.button`
   cursor: pointer;
   text-align: left;
 
-  /* Cor do texto condicional */
-  color: ${(props) => (props.temValor ? "#fafafa" : "#71717a")};
-
-  /* Se o popover estiver aberto (campoAberto), simulamos o foco */
+  color: ${(props) => (props.$temValor ? "#fafafa" : "#edebeb")};
   ${(props) =>
     props.focado &&
     css`
@@ -239,4 +236,38 @@ export const ErrorText = styled.span`
   color: #ef4444;
   font-size: 11px;
   margin-top: -4px;
+`;
+export const ContainerBloqueio = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 8px;
+
+  .mensagem-erro {
+    color: #fca5a5;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  .botao-redirecionar {
+    background: #27272a;
+    color: white;
+    border: 1px solid #ef4444;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s, color 0.2s;
+
+    &:hover {
+      background: #ef4444;
+      color: white;
+    }
+  }
 `;

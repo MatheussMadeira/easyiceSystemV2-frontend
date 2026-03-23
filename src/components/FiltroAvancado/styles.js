@@ -4,21 +4,33 @@ import styled from "styled-components";
 
 export const PopoverFiltroWrapper = styled.div`
   position: absolute;
-  top: 50px;
-  left: 0;
+  top: 10px;
+  right: 0;
   background: #18181b;
   border: 1px solid #27272a;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  z-index: 1001;
-  padding: 15px;
-  width: 800px;
-  max-height: 500px;
-  display: flex;
-  flex-direction: column;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+
+  width: fit-content;
+  min-width: 300px;
+  max-width: 95vw;
+
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: auto;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 `;
 
-// ESTE ESTAVA FALTANDO:
 export const PopoverHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -47,19 +59,47 @@ export const PopoverHeader = styled.div`
 
 export const FiltroGridColunas = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 15px;
-  overflow: hidden;
-`;
+  gap: 20px;
 
+  grid-template-columns: repeat(${(props) => props.totalColunas || 1}, 1fr);
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto;
+    padding-right: 5px;
+
+    &::-webkit-scrollbar {
+      width: 10px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+    }
+  }
+`;
 export const FiltroColuna = styled.div`
-  display: flex;
-  flex-direction: column;
+  min-width: 180px;
+
   h4 {
+    font-size: 12px;
     color: #71717a;
-    font-size: 11px;
     text-transform: uppercase;
+    margin-bottom: 12px;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background: #18181b;
+    padding-bottom: 5px;
+  }
+
+  @media (max-width: 768px) {
+    min-width: 100%;
+    border-bottom: 1px solid #27272a;
+    padding-bottom: 15px;
     margin-bottom: 10px;
+
+    &:last-child {
+      border-bottom: none;
+    }
   }
 `;
 

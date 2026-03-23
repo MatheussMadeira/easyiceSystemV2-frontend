@@ -31,9 +31,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    setLoadingAuth(true);
     try {
-      // Removemos qualquer lixo que possa estar no header de Authorization
       delete api.defaults.headers.common["Authorization"];
 
       const response = await api.post("/auth/login", { email, password });
@@ -42,14 +40,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("@EasyIce:token", token);
       localStorage.setItem("@EasyIce:user", JSON.stringify(userData));
 
-      // Configura o novo token
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       setUser(userData);
     } catch (error) {
-      console.error("Erro no login:", error.response?.data);
-      throw error; // Repassa o erro para o componente de Login mostrar na tela
-    } finally {
-      setLoadingAuth(false);
+      throw error;
     }
   };
 

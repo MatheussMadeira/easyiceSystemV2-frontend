@@ -69,8 +69,24 @@ export default function MenuGlobal() {
           </H.MenuItem>
         )}
         {user?.funcoes?.includes("ADMIN") && (
+          <H.MenuItem
+            $active={location.pathname === "/logs"}
+            onClick={() => handleNavigation("/logs")}
+          >
+            💻 Logs
+          </H.MenuItem>
+        )}
+        {user?.funcoes?.includes("ADMIN") && (
           <H.MenuItem onClick={() => navigate("/usuarios")}>
-            <span>👥</span> Gerenciar Usuários
+            👥 Gerenciar Usuários
+          </H.MenuItem>
+        )}
+        {user?.funcoes?.includes("ADMIN") && (
+          <H.MenuItem
+            $active={location.pathname === "/servico"}
+            onClick={() => handleNavigation("/servico")}
+          >
+            🔨 Gerenciar Serviços
           </H.MenuItem>
         )}
         <H.MenuItem

@@ -7,7 +7,15 @@ export default function FiltroAvancado({
   toggleFiltro,
   setFiltros,
   onClose,
+  camposVisiveis = [
+    "situacao",
+    "setor",
+    "solicitante",
+    "executor",
+    "prioridade",
+  ],
 }) {
+  console.log("Opções recebidas no filtro:", opcoes);
   const getIniciais = (nome) => {
     if (!nome || typeof nome !== "string") return "?";
     const partes = nome.trim().split(" ");
@@ -46,7 +54,6 @@ export default function FiltroAvancado({
 
   return (
     <>
-      {/* 1. OVERLAY: Camada invisível que detecta o clique fora */}
       <div
         onClick={onClose}
         style={{
@@ -55,13 +62,12 @@ export default function FiltroAvancado({
           left: 0,
           width: "100vw",
           height: "100vh",
-          zIndex: 998, // Um número abaixo do Wrapper do filtro
-          background: "transparent", // Ou 'rgba(0,0,0,0.1)' se quiser escurecer o fundo
+          zIndex: 998,
+          background: "transparent",
         }}
       />
 
-      {/* 2. WRAPPER DO FILTRO: Com z-index maior para ficar acima do overlay */}
-      <S.PopoverFiltroWrapper style={{ width: "950px", zIndex: 999 }}>
+      <S.PopoverFiltroWrapper style={{ zIndex: 999 }}>
         <S.PopoverHeader
           style={{
             display: "flex",
@@ -83,7 +89,7 @@ export default function FiltroAvancado({
             onChange={(e) =>
               setFiltros((prev) => ({ ...prev, numeroOS: e.target.value }))
             }
-            onClick={(e) => e.stopPropagation()} // Impede que o clique no input feche o filtro
+            onClick={(e) => e.stopPropagation()}
             style={{
               flex: 1,
               margin: "0 20px",
@@ -113,44 +119,58 @@ export default function FiltroAvancado({
         <S.FiltroGridColunas
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
+            gridTemplateColumns: `repeat(${camposVisiveis.length}, 1fr)`,
             gap: "15px",
           }}
         >
-          <ColunaFiltro
-            titulo="Situação"
-            categoria="situacao"
-            itens={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
-            comIniciais
-          />
-          <ColunaFiltro
-            titulo="Setores"
-            categoria="setor"
-            itens={opcoes?.setores}
-            comIniciais
-          />
-          <ColunaFiltro
-            titulo="Solicitantes"
-            categoria="solicitante"
-            itens={opcoes?.solicitantes}
-            comIniciais
-          />
-          <ColunaFiltro
-            titulo="Executores"
-            categoria="executor"
-            itens={opcoes?.executores}
-            comIniciais
-          />
-          <ColunaFiltro
-            titulo="Prioridade"
-            categoria="prioridade"
-            itens={[
-              "Normal (Sequência de execução)",
-              "Alta (No decorrer do dia)",
-              "Emergencia (Atendimento Imediato)",
-            ]}
-            comIniciais
-          />
+          {camposVisiveis.includes("situacao") && (
+            <ColunaFiltro
+              titulo="Situação"
+              categoria="situacao"
+              itens={["EM ABERTO", "EM PROCESSO", "CONCLUÍDO"]}
+              comIniciais
+            />
+          )}
+
+          {camposVisiveis.includes("setor") && (
+            <ColunaFiltro
+              titulo="Setores"
+              categoria="setor"
+              itens={opcoes?.setores}
+              comIniciais
+            />
+          )}
+
+          {camposVisiveis.includes("solicitante") && (
+            <ColunaFiltro
+              titulo="Solicitantes"
+              categoria="solicitante"
+              itens={opcoes?.solicitantes}
+              comIniciais
+            />
+          )}
+
+          {camposVisiveis.includes("executor") && (
+            <ColunaFiltro
+              titulo="Executores"
+              categoria="executor"
+              itens={opcoes?.executores}
+              comIniciais
+            />
+          )}
+
+          {camposVisiveis.includes("prioridade") && (
+            <ColunaFiltro
+              titulo="Prioridade"
+              categoria="prioridade"
+              itens={[
+                "Normal (Sequência de execução)",
+                "Alta (No decorrer do dia)",
+                "Emergencia (Atendimento Imediato)",
+              ]}
+              comIniciais
+            />
+          )}
         </S.FiltroGridColunas>
       </S.PopoverFiltroWrapper>
     </>

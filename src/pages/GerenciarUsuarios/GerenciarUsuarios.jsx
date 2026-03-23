@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useUser } from "../../hooks/useUser";
-import * as S from "./styles.js"; // Você pode adaptar os estilos da TabelaOS
+import * as S from "./styles.js";
 import ModalBase from "../../components/Modal/ModalBase";
 import MenuGlobal from "../../components/MenuHamburguer/menu.jsx";
 import Swal from "sweetalert2";
@@ -14,11 +14,17 @@ const GerenciarUsuarios = () => {
   const [dadosForm, setDadosForm] = useState({
     nome: "",
     email: "",
-    password: "",
+    password: "", // Campo inicializado
     funcoes: "",
   });
 
-  // Filtro de busca por nome
+  const swalConfig = {
+    background: "#09090b",
+    color: "#fafafa",
+    confirmButtonColor: "#3b82f6",
+    cancelButtonColor: "#27272a",
+  };
+
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter((u) =>
       u.nome.toLowerCase().includes(busca.toLowerCase())
@@ -36,98 +42,124 @@ const GerenciarUsuarios = () => {
     setDadosForm({
       nome: u.nome,
       email: u.email,
-      password: "", // Senha sempre vazia na edição por segurança
+      password: "", // Limpa o campo de senha ao editar
       funcoes: u.funcoes.join(", "),
     });
     setModalAberto(true);
   };
 
   const handleSalvar = async () => {
-    // 1. Validação Simples no Front-end
+    // Validação básica
     if (!dadosForm.nome || !dadosForm.email) {
-      return Swal.fire("Atenção", "Nome e E-mail são obrigatórios.", "warning");
+      return Swal.fire({
+        ...swalConfig,
+        title: "ATENÇÃO",
+        text: "NOME E E-MAIL SÃO OBRIGATÓRIOS.",
+        icon: "warning",
+      });
     }
 
+    // Validação específica de senha: SÓ NO CADASTRO
     if (!usuarioSelecionado && !dadosForm.password) {
-      return Swal.fire(
-        "Atenção",
-        "A senha é obrigatória para novos usuários.",
-        "warning"
-      );
+      return Swal.fire({
+        ...swalConfig,
+        title: "ATENÇÃO",
+        text: "A SENHA É OBRIGATÓRIA PARA NOVOS USUÁRIOS.",
+        icon: "warning",
+      });
     }
 
     try {
-      // 2. Tratamento do campo funcoes para evitar o erro do print
-      // Se a string estiver vazia, enviamos um array vazio, senão o Mongoose reclama do enum
       const funcoesArray =
         dadosForm.funcoes && dadosForm.funcoes.trim() !== ""
           ? dadosForm.funcoes.split(",").map((f) => f.trim().toUpperCase())
-          : []; // Envia array vazio se não houver funções digitadas
+          : [];
 
+      // Criamos o payload. Se for edição, removemos a senha para não enviar campo vazio ao back
       const payload = {
         ...dadosForm,
         funcoes: funcoesArray,
       };
 
+      if (usuarioSelecionado) delete payload.password;
+
       if (usuarioSelecionado) {
         await updateUser({ id: usuarioSelecionado._id, dados: payload });
-        Swal.fire("Sucesso", "Usuário atualizado!", "success");
+        Swal.fire({
+          ...swalConfig,
+          title: "SUCESSO",
+          text: "USUÁRIO ATUALIZADO COM SUCESSO!",
+          icon: "success",
+        });
       } else {
         await createUser(payload);
-        Swal.fire("Sucesso", "Usuário criado com sucesso!", "success");
+        Swal.fire({
+          ...swalConfig,
+          title: "SUCESSO",
+          text: "NOVO USUÁRIO CADASTRADO!",
+          icon: "success",
+        });
       }
 
       setModalAberto(false);
     } catch (err) {
-      // 3. Tratamento de erro amigável
-      console.error("Erro completo:", err);
-
-      // Captura a mensagem do backend ou usa uma genérica
-      const mensagemErro = err.response?.data?.erro || err.message;
-
-      // Se for erro de validação do Mongoose (como o do seu print), simplifica para o usuário
-      if (mensagemErro.includes("validation failed")) {
-        Swal.fire(
-          "Erro de Cadastro",
-          "Verifique se todos os campos foram preenchidos corretamente.",
-          "error"
-        );
-      } else if (mensagemErro.includes("duplicate key")) {
-        Swal.fire(
-          "Erro",
-          "Este e-mail já está cadastrado no sistema.",
-          "error"
-        );
-      } else {
-        Swal.fire(
-          "Erro",
-          mensagemErro || "Não foi possível salvar os dados.",
-          "error"
-        );
-      }
+      const msg = err.response?.data?.erro || "ERRO AO PROCESSAR SOLICITAÇÃO.";
+      Swal.fire({
+        ...swalConfig,
+        title: "ERRO",
+        text: msg.toUpperCase(),
+        icon: "error",
+      });
     }
   };
 
   const handleExcluir = async (id) => {
     const result = await Swal.fire({
-      title: "Remover Usuário?",
-      text: "Esta ação não pode ser desfeita!",
+      ...swalConfig,
+      title: "REMOVER USUÁRIO?",
+      text: "ESTA AÇÃO NÃO PODE SER DESFEITA!",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
-      confirmButtonText: "Sim, remover",
+      confirmButtonText: "SIM, REMOVER",
+      cancelButtonText: "CANCELAR",
     });
 
     if (result.isConfirmed) {
       try {
         await deleteUser(id);
-        Swal.fire("Removido!", "O usuário foi excluído.", "success");
+        Swal.fire({
+          ...swalConfig,
+          title: "REMOVIDO!",
+          text: "O USUÁRIO FOI EXCLUÍDO.",
+          icon: "success",
+        });
         setModalAberto(false);
       } catch (err) {
-        Swal.fire("Erro", "Não foi possível excluir.", "error");
+        Swal.fire({
+          ...swalConfig,
+          title: "ERRO",
+          text: "NÃO FOI POSSÍVEL EXCLUIR.",
+          icon: "error",
+        });
       }
     }
   };
+
+  // DEFINIÇÃO DOS CAMPOS DINÂMICOS
+  const modalFields = [
+    { name: "nome", label: "NOME COMPLETO", type: "text" },
+    { name: "email", label: "E-MAIL CORPORATIVO", type: "email" },
+    // A SENHA SÓ APARECE SE NÃO HOUVER USUÁRIO SELECIONADO (MODO CRIAÇÃO)
+    ...(!usuarioSelecionado
+      ? [{ name: "password", label: "SENHA DE ACESSO", type: "password" }]
+      : []),
+    {
+      name: "funcoes",
+      label: "FUNÇÕES (SEPARE POR VÍRGULA: ADMIN, EXECUTOR...)",
+      type: "text",
+    },
+  ];
 
   return (
     <div style={{ backgroundColor: "#09090b", minHeight: "100vh" }}>
@@ -137,7 +169,6 @@ const GerenciarUsuarios = () => {
           <h1 style={{ color: "#fff", fontSize: "20px", marginLeft: "50px" }}>
             Gerenciar Equipe
           </h1>
-
           <div
             style={{
               display: "flex",
@@ -153,7 +184,6 @@ const GerenciarUsuarios = () => {
               style={{ width: "400px" }}
             />
           </div>
-
           <button
             onClick={abrirModalNovo}
             style={{
@@ -170,7 +200,6 @@ const GerenciarUsuarios = () => {
           </button>
         </S.HeaderFixo>
 
-        {/* GRID DE CARDS */}
         <div
           style={{
             display: "grid",
@@ -220,7 +249,14 @@ const GerenciarUsuarios = () => {
                   {u.nome.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 style={{ color: "#fff", margin: 0, fontSize: "16px" }}>
+                  <h3
+                    style={{
+                      color: "#fff",
+                      margin: 0,
+                      fontSize: "16px",
+                      textTransform: "uppercase",
+                    }}
+                  >
                     {u.nome}
                   </h3>
                   <span style={{ color: "#71717a", fontSize: "13px" }}>
@@ -228,7 +264,6 @@ const GerenciarUsuarios = () => {
                   </span>
                 </div>
               </div>
-
               <div
                 style={{
                   display: "flex",
@@ -263,28 +298,13 @@ const GerenciarUsuarios = () => {
         onClose={() => setModalAberto(false)}
         title={
           usuarioSelecionado
-            ? "Editar Funcionário"
-            : "Cadastrar Novo Funcionário"
+            ? "EDITAR FUNCIONÁRIO"
+            : "CADASTRAR NOVO FUNCIONÁRIO"
         }
         data={dadosForm}
         setData={setDadosForm}
         onSubmit={handleSalvar}
-        fields={[
-          { name: "nome", label: "Nome Completo", type: "text" },
-          { name: "email", label: "E-mail Corporativo", type: "email" },
-          {
-            name: "password",
-            label: usuarioSelecionado
-              ? "Nova Senha (deixe vazio para manter)"
-              : "Senha de Acesso",
-            type: "password",
-          },
-          {
-            name: "funcoes",
-            label: "Funções (Separe por vírgula: ADMIN, EXECUTOR...)",
-            type: "text",
-          },
-        ]}
+        fields={modalFields}
         footerActions={
           usuarioSelecionado && (
             <button
@@ -297,6 +317,8 @@ const GerenciarUsuarios = () => {
                 border: "none",
                 cursor: "pointer",
                 marginRight: "auto",
+                textTransform: "uppercase",
+                fontWeight: "700",
               }}
             >
               Remover Acesso
